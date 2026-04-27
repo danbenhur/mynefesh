@@ -47,8 +47,10 @@ export function useChat() {
       apiMessages.unshift({ role: 'assistant', content: OPENING_MESSAGE.content })
     }
 
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
+
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${apiBase}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages }),

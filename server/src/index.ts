@@ -4,8 +4,9 @@ import chatRouter from './routes/chat.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173'
 
-app.use(cors({ origin: 'http://localhost:5173' }))
+app.use(cors({ origin: ALLOWED_ORIGIN }))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
