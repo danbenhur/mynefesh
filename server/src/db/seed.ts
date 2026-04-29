@@ -1,4 +1,4 @@
-import { db } from './index.js'
+import { getDb } from './index.js'
 import { umbrellas, tasks, reminders, healthHistory, chatMessages } from './schema.js'
 import { sql } from 'drizzle-orm'
 
@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm'
 // Clears all tables first (truncate cascade), then re-inserts — fully idempotent.
 
 async function seed() {
+  const db = getDb()
   console.log('Seeding database...')
 
   // Clear in safe order: chatMessages has no FK; truncate umbrellas cascades to
@@ -106,20 +107,20 @@ async function seed() {
   ])
 
   // Health history (sparkline data)
-  const historyRows = [
-    { umbrella: people,      rows: [{ date: '2026-04-20', score: 68 }, { date: '2026-04-27', score: 72 }] },
-    { umbrella: wife,        rows: [{ date: '2026-04-20', score: 75 }, { date: '2026-04-27', score: 80 }] },
-    { umbrella: community,   rows: [{ date: '2026-04-20', score: 60 }, { date: '2026-04-27', score: 65 }] },
-    { umbrella: money,       rows: [{ date: '2026-04-20', score: 50 }, { date: '2026-04-27', score: 55 }] },
-    { umbrella: income,      rows: [{ date: '2026-04-20', score: 55 }, { date: '2026-04-27', score: 60 }] },
-    { umbrella: expenses,    rows: [{ date: '2026-04-20', score: 55 }, { date: '2026-04-27', score: 50 }] },
-    { umbrella: kids,        rows: [{ date: '2026-04-20', score: 74 }, { date: '2026-04-27', score: 78 }] },
-    { umbrella: spirituality,rows: [{ date: '2026-04-20', score: 78 }, { date: '2026-04-27', score: 83 }] },
-    { umbrella: learning,    rows: [{ date: '2026-04-20', score: 85 }, { date: '2026-04-27', score: 88 }] },
-    { umbrella: davening,    rows: [{ date: '2026-04-20', score: 72 }, { date: '2026-04-27', score: 77 }] },
-    { umbrella: health,      rows: [{ date: '2026-04-20', score: 58 }, { date: '2026-04-27', score: 61 }] },
-    { umbrella: exercise,    rows: [{ date: '2026-04-20', score: 50 }, { date: '2026-04-27', score: 55 }] },
-    { umbrella: nutrition,   rows: [{ date: '2026-04-20', score: 65 }, { date: '2026-04-27', score: 68 }] },
+  const historyRows: Array<{ umbrella: typeof people; rows: Array<{ date: string; score: number }> }> = [
+    { umbrella: people,       rows: [{ date: '2026-04-20', score: 68 }, { date: '2026-04-27', score: 72 }] },
+    { umbrella: wife,         rows: [{ date: '2026-04-20', score: 75 }, { date: '2026-04-27', score: 80 }] },
+    { umbrella: community,    rows: [{ date: '2026-04-20', score: 60 }, { date: '2026-04-27', score: 65 }] },
+    { umbrella: money,        rows: [{ date: '2026-04-20', score: 50 }, { date: '2026-04-27', score: 55 }] },
+    { umbrella: income,       rows: [{ date: '2026-04-20', score: 55 }, { date: '2026-04-27', score: 60 }] },
+    { umbrella: expenses,     rows: [{ date: '2026-04-20', score: 55 }, { date: '2026-04-27', score: 50 }] },
+    { umbrella: kids,         rows: [{ date: '2026-04-20', score: 74 }, { date: '2026-04-27', score: 78 }] },
+    { umbrella: spirituality, rows: [{ date: '2026-04-20', score: 78 }, { date: '2026-04-27', score: 83 }] },
+    { umbrella: learning,     rows: [{ date: '2026-04-20', score: 85 }, { date: '2026-04-27', score: 88 }] },
+    { umbrella: davening,     rows: [{ date: '2026-04-20', score: 72 }, { date: '2026-04-27', score: 77 }] },
+    { umbrella: health,       rows: [{ date: '2026-04-20', score: 58 }, { date: '2026-04-27', score: 61 }] },
+    { umbrella: exercise,     rows: [{ date: '2026-04-20', score: 50 }, { date: '2026-04-27', score: 55 }] },
+    { umbrella: nutrition,    rows: [{ date: '2026-04-20', score: 65 }, { date: '2026-04-27', score: 68 }] },
   ]
 
   for (const { umbrella, rows } of historyRows) {
