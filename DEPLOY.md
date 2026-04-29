@@ -13,7 +13,24 @@ git push -u origin master
 
 ---
 
-## 2. Deploy Backend to Render
+## 2. Database setup (Neon)
+
+1. Sign up at https://neon.tech (free tier is persistent)
+2. Create a new project — name it `mynefesh`
+3. From the project dashboard, go to **Connection Details**
+4. Copy the **Connection string** (looks like `postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require`)
+5. You'll use this as `DATABASE_URL` on Render (step 3) and locally in `server/.env`
+
+**Run migrations once after connecting:**
+```bash
+cd server
+DATABASE_URL=<your-neon-url> npm run db:migrate
+DATABASE_URL=<your-neon-url> npm run db:seed
+```
+
+---
+
+## 3. Deploy Backend to Render
 
 1. Go to https://render.com → **New → Web Service**
 2. Connect your GitHub repo
@@ -26,7 +43,8 @@ git push -u origin master
    | Key | Value |
    |-----|-------|
    | `ANTHROPIC_API_KEY` | your Anthropic key |
-   | `ALLOWED_ORIGIN` | your Vercel URL (e.g. `https://mynefesh.vercel.app`) — set this after Vercel deploy |
+   | `DATABASE_URL` | your Neon connection string from step 2 |
+   | `ALLOWED_ORIGIN` | your Vercel URL — set this after Vercel deploy |
    | `NODE_ENV` | `production` |
 5. Click **Create Web Service**. Note the service URL (e.g. `https://mynefesh-api.onrender.com`).
 
