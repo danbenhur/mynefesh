@@ -3,8 +3,18 @@ import { useStore } from '../store/useStore'
 import type { Umbrella } from '../types/umbrella'
 import UmbrellaCard from './UmbrellaCard'
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
+
+interface AuthUser {
+  id: string
+  username: string
+  displayName: string
+  avatar?: string
+}
+
 interface Props {
   onSelect: (u: Umbrella) => void
+  user?: AuthUser
 }
 
 function overallScore(umbrellas: Umbrella[]) {
@@ -21,12 +31,17 @@ function greeting() {
 
 const ICON_PICKS = ['🏠', '👨‍👩‍👧‍👦', '💰', '🧒', '✨', '💪', '📚', '🎵', '🌍', '❤️', '🕍', '💼']
 
-export default function Dashboard({ onSelect }: Props) {
+export default function Dashboard({ onSelect, user }: Props) {
   const { umbrellas, loading, error, loadUmbrellas, addUmbrella } = useStore()
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('🏠')
   const [creating, setCreating] = useState(false)
+
+  async function handleLogout() {
+    await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
+    window.location.reload()
+  }
 
   useEffect(() => {
     loadUmbrellas()
@@ -51,11 +66,19 @@ export default function Dashboard({ onSelect }: Props) {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <header className="px-5 pt-8 pb-4">
+        <div className="flex items-start justify-between mb-1">
+          <p className="text-zinc-400 text-sm">{greeting()}, Dan 👋</p>
+          {user && (
+            <button
+              onClick={handleLogout}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            >
+              Logout
+            </button>
+          )}
+        </div>
         <div className="flex items-end justify-between">
-          <div>
-            <p className="text-zinc-400 text-sm mb-1">{greeting()}, Dan 👋</p>
-            <h1 className="text-2xl font-bold tracking-tight">MyNefesh</h1>
-          </div>
+          <h1 className="text-2xl font-bold tracking-tight">MyNefesh</h1>
           {umbrellas.length > 0 && (
             <div className="text-right">
               <p className="text-zinc-400 text-xs mb-1">Overall health</p>
