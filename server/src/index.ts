@@ -17,7 +17,11 @@ import healthHistoryRouter from './routes/health-history.js'
 const app = express()
 const PORT = process.env.PORT ?? 3001
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173'
-const isProd = process.env.NODE_ENV === 'production'
+const isDev = process.env.NODE_ENV === 'development'
+
+// Required for express-session to set Secure cookies behind Render/any reverse proxy.
+// Without this, req.secure is always false (proxy terminates TLS), so Set-Cookie is skipped.
+app.set('trust proxy', 1)
 
 app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }))
 app.use(express.json())
@@ -29,8 +33,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: !isDev,        // false only in local dev (NODE_ENV=development)
+      sameSite: isDev ? 'lax' : 'none',  // 'none' required for cross-site (Vercel→Render)
       maxAge: 30 * 24 * 60 * 60 * 1000,
     },
   })
