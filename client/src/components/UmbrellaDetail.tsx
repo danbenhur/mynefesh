@@ -63,7 +63,7 @@ export default function UmbrellaDetail({ umbrella, onBack, onSelectChild }: Prop
             <div>
               <h1 className="text-2xl font-bold">{umbrella.name}</h1>
               <div className="flex items-center gap-3 mt-1">
-                <Sparkline history={umbrella.history} />
+                <Sparkline data={umbrella.history.map(h => h.score)} color="#9CAF88" />
               </div>
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function UmbrellaDetail({ umbrella, onBack, onSelectChild }: Prop
                   <span className="text-2xl">{child.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">{child.name}</p>
-                    <Sparkline history={child.history} width={60} height={20} />
+                    <Sparkline data={child.history.map(h => h.score)} color="#9CAF88" width={60} height={20} />
                   </div>
                   <HealthRing score={child.healthScore} size={40} />
                 </button>

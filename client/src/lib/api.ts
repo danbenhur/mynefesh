@@ -99,3 +99,6 @@ export const getChatHistory = (limit = 50) =>
   req<Array<{ id: string; role: 'user' | 'assistant'; content: string; timestamp: string }>>(
     `/api/chat/history?limit=${limit}`
   )
+
+export const getHealthHistory = (umbrellaId: string, days = 42) =>
+  req<ApiHealthSnapshot[]>(`/api/health-history?umbrella=${umbrellaId}&days=${days}`)
