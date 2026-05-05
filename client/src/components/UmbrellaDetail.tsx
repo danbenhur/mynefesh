@@ -1,281 +1,200 @@
-import { useState } from 'react'
-import type { Umbrella } from '../types/umbrella'
-import { useStore } from '../store/useStore'
-import HealthRing from './HealthRing'
+import { T, umbrellaColor } from '../lib/theme'
+import Ring from './Ring'
 import Sparkline from './Sparkline'
+import Icon from './Icon'
+import type { Umbrella } from '../types/umbrella'
+import type { NavigateFn } from '../types/nav'
+
+const PRIORITY_COLOR: Record<string, string> = {
+  high: T.red,
+  medium: T.amber,
+  low: T.blue,
+}
+
+function relativeDate(dateStr: string): string {
+  const diffDays = Math.round((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.round(diffDays / 7)}w ago`
+  return `${Math.round(diffDays / 30)}mo ago`
+}
+
+function lastActivity(u: Umbrella): string {
+  if (!u.history.length) return '—'
+  const sorted = [...u.history].sort((a, b) => b.date.localeCompare(a.date))
+  return relativeDate(sorted[0].date)
+}
+
+function childSparkData(u: Umbrella): number[] {
+  const sorted = [...u.history]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(h => h.score)
+  return sorted.length >= 2 ? sorted : [u.healthScore]
+}
 
 interface Props {
   umbrella: Umbrella
-  onBack: () => void
-  onSelectChild: (u: Umbrella) => void
+  navigate: NavigateFn
+  goBack: () => void
 }
 
-const priorityColor = {
-  high: 'text-red-400 bg-red-400/10',
-  medium: 'text-amber-400 bg-amber-400/10',
-  low: 'text-zinc-400 bg-zinc-700/50',
-}
+export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
+  const color = umbrellaColor(umbrella.name)
 
-export default function UmbrellaDetail({ umbrella, onBack, onSelectChild }: Props) {
-  const { setHealthScore, snapshotHealth, addTask, toggleTask, deleteTask, addNote, deleteNote, dismissReminder } = useStore()
-
-  const [newTask, setNewTask] = useState('')
-  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high'>('medium')
-  const [newNote, setNewNote] = useState('')
-  const [editingScore, setEditingScore] = useState(false)
-  const [draftScore, setDraftScore] = useState(umbrella.healthScore)
-
-  function handleSaveScore() {
-    setHealthScore(umbrella.id, draftScore)
-    snapshotHealth(umbrella.id)
-    setEditingScore(false)
-  }
-
-  function handleAddTask() {
-    if (!newTask.trim()) return
-    addTask(umbrella.id, newTask.trim(), taskPriority)
-    setNewTask('')
-  }
-
-  function handleAddNote() {
-    if (!newNote.trim()) return
-    addNote(umbrella.id, newNote.trim())
-    setNewNote('')
-  }
-
-  const openTasks = umbrella.tasks.filter(t => t.status !== 'done')
-  const doneTasks = umbrella.tasks.filter(t => t.status === 'done')
+  const trendData = [...umbrella.history]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(h => h.score)
 
   return (
-    <div className="min-h-full bg-zinc-950 text-white">
+    <div style={{ minHeight: '100%', background: T.bg, paddingBottom: 100 }}>
       {/* Header */}
-      <div className="px-5 pt-8 pb-5">
+      <div style={{ padding: '60px 20px 20px', background: T.bgCard, boxShadow: '0 1px 0 rgba(44,44,42,0.06)' }}>
         <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-zinc-400 hover:text-white mb-5 transition-colors text-sm"
+          onClick={goBack}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+            color: T.charcoalLight, fontSize: 13, marginBottom: 16, padding: 0,
+            fontFamily: 'inherit',
+          }}
         >
-          ← Back
+          <Icon name="back" size={16} color={T.charcoalLight} />
+          Back
         </button>
 
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-5xl">{umbrella.icon}</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 14,
+              background: color + '22',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0,
+            }}>
+              {umbrella.icon}
+            </div>
             <div>
-              <h1 className="text-2xl font-bold">{umbrella.name}</h1>
-              <div className="flex items-center gap-3 mt-1">
-                <Sparkline data={umbrella.history.map(h => h.score)} color="#9CAF88" />
-              </div>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1.2, marginBottom: 2 }}>
+                {umbrella.name}
+              </h1>
+              <p style={{ fontSize: 12, color: T.charcoalLight }}>
+                Health score: <span style={{ color, fontWeight: 700 }}>{umbrella.healthScore}</span>/100
+              </p>
             </div>
           </div>
-          <button onClick={() => { setDraftScore(umbrella.healthScore); setEditingScore(true) }}>
-            <HealthRing score={umbrella.healthScore} size={64} />
-          </button>
+          <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
+            <Ring score={umbrella.healthScore} size={56} stroke={5} color={color} animate={false} />
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color }}>{umbrella.healthScore}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '16px 20px 0' }}>
+        {/* Trend card */}
+        <div style={{
+          background: T.bgCard, borderRadius: 16, padding: '14px 16px',
+          marginBottom: 16, boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
+        }}>
+          <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 10 }}>6-week trend</p>
+          {trendData.length >= 2
+            ? <Sparkline data={trendData} color={color} width={240} height={36} />
+            : <p style={{ fontSize: 12, color: T.charcoalLight, fontStyle: 'italic' }}>
+                No trend data yet. Check-in regularly to build your history.
+              </p>
+          }
         </div>
 
-        {/* Score editor */}
-        {editingScore && (
-          <div className="mt-4 bg-zinc-900 border border-zinc-700 rounded-2xl p-4">
-            <p className="text-sm text-zinc-400 mb-3">Update health score</p>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={draftScore}
-                onChange={e => setDraftScore(Number(e.target.value))}
-                className="flex-1 accent-indigo-500"
-              />
-              <span className="text-white font-bold w-8 text-right">{draftScore}</span>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={handleSaveScore}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-xl py-2 transition-colors"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditingScore(false)}
-                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-xl py-2 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="px-5 space-y-6 pb-24">
-        {/* Sub-umbrellas */}
+        {/* Sub-areas */}
         {umbrella.children.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Areas</h2>
-            <div className="grid grid-cols-2 gap-2">
-              {umbrella.children.map(child => (
-                <button
-                  key={child.id}
-                  onClick={() => onSelectChild(child)}
-                  className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-600 rounded-xl px-3 py-3 transition-all text-left"
-                >
-                  <span className="text-2xl">{child.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{child.name}</p>
-                    <Sparkline data={child.history.map(h => h.score)} color="#9CAF88" width={60} height={20} />
+          <>
+            <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>Sub-areas</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {umbrella.children.map(child => {
+                const childColor = umbrellaColor(child.name)
+                const sparkData = childSparkData(child)
+                const openTasks = child.tasks.filter(t => t.status !== 'done')
+                const topTask = openTasks[0]
+
+                return (
+                  <div
+                    key={child.id}
+                    style={{
+                      background: T.bgCard, borderRadius: 16, padding: '14px 16px',
+                      boxShadow: '0 1px 8px rgba(44,44,42,0.05)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: T.charcoal, marginBottom: 1 }}>
+                          {child.name}
+                        </p>
+                        <p style={{ fontSize: 11, color: T.charcoalLight }}>Last: {lastActivity(child)}</p>
+                      </div>
+                      <Sparkline data={sparkData} color={childColor} width={50} height={20} />
+                      <span style={{ fontSize: 18, fontWeight: 700, color: childColor, flexShrink: 0 }}>
+                        {child.healthScore}
+                      </span>
+                    </div>
+
+                    {topTask && (
+                      <div style={{
+                        marginTop: 10, paddingTop: 10,
+                        borderTop: '1px solid rgba(44,44,42,0.07)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{
+                            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                            background: PRIORITY_COLOR[topTask.priority] ?? T.charcoalLight,
+                          }} />
+                          <span style={{ fontSize: 12, color: T.charcoalMid, flex: 1 }}>{topTask.title}</span>
+                        </div>
+                        <button
+                          onClick={() => navigate('chat')}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontSize: 11, fontWeight: 700,
+                            color: PRIORITY_COLOR[topTask.priority] ?? T.sage,
+                            fontFamily: 'inherit', flexShrink: 0, padding: '0 0 0 8px',
+                          }}
+                        >
+                          Ask Nefesh →
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <HealthRing score={child.healthScore} size={40} />
-                </button>
-              ))}
+                )
+              })}
             </div>
-          </section>
+          </>
         )}
 
-        {/* Reminders */}
-        {umbrella.reminders.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Reminders</h2>
-            <div className="space-y-2">
-              {umbrella.reminders.map(r => (
-                <div key={r.id} className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-                  <span className="text-amber-400 mt-0.5">🔔</span>
-                  <p className="flex-1 text-sm text-zinc-200">{r.message}</p>
-                  <button
-                    onClick={() => dismissReminder(umbrella.id, r.id)}
-                    className="text-zinc-500 hover:text-zinc-300 text-lg leading-none transition-colors"
-                    aria-label="Dismiss"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
+        {umbrella.children.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: T.charcoalLight, fontSize: 13 }}>
+            No sub-areas yet.
+          </div>
         )}
-
-        {/* Tasks */}
-        <section>
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Tasks</h2>
-
-          {/* Add task */}
-          <div className="flex gap-2 mb-3">
-            <input
-              value={newTask}
-              onChange={e => setNewTask(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddTask()}
-              placeholder="Add a task..."
-              className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-indigo-500 rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none transition-colors"
-            />
-            <select
-              value={taskPriority}
-              onChange={e => setTaskPriority(e.target.value as typeof taskPriority)}
-              className="bg-zinc-900 border border-zinc-700 rounded-xl px-2 py-2 text-sm text-zinc-300 outline-none"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Med</option>
-              <option value="high">High</option>
-            </select>
-            <button
-              onClick={handleAddTask}
-              disabled={!newTask.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white rounded-xl px-3 py-2 text-sm transition-colors"
-            >
-              Add
-            </button>
-          </div>
-
-          {/* Open tasks */}
-          {openTasks.length === 0 && (
-            <p className="text-zinc-600 text-sm">No open tasks.</p>
-          )}
-          <div className="space-y-2">
-            {openTasks.map(t => (
-              <div key={t.id} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
-                <button
-                  onClick={() => toggleTask(umbrella.id, t.id)}
-                  className="w-5 h-5 rounded-full border-2 border-zinc-600 hover:border-indigo-400 transition-colors shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white">{t.title}</p>
-                  {t.dueDate && (
-                    <p className="text-xs text-zinc-500 mt-0.5">Due {t.dueDate}</p>
-                  )}
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priorityColor[t.priority]}`}>
-                  {t.priority}
-                </span>
-                <button
-                  onClick={() => deleteTask(umbrella.id, t.id)}
-                  className="text-zinc-600 hover:text-red-400 text-lg leading-none transition-colors"
-                  aria-label="Delete"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Done tasks */}
-          {doneTasks.length > 0 && (
-            <div className="mt-3 space-y-1.5">
-              <p className="text-xs text-zinc-600 mb-2">Done ({doneTasks.length})</p>
-              {doneTasks.map(t => (
-                <div key={t.id} className="flex items-center gap-3 opacity-40">
-                  <button
-                    onClick={() => toggleTask(umbrella.id, t.id)}
-                    className="w-5 h-5 rounded-full bg-green-600 border-2 border-green-600 shrink-0 flex items-center justify-center text-white text-xs"
-                  >
-                    ✓
-                  </button>
-                  <p className="text-sm text-zinc-400 line-through flex-1">{t.title}</p>
-                  <button
-                    onClick={() => deleteTask(umbrella.id, t.id)}
-                    className="text-zinc-600 hover:text-red-400 text-lg leading-none"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Notes */}
-        <section>
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Notes</h2>
-          <div className="flex gap-2 mb-3">
-            <input
-              value={newNote}
-              onChange={e => setNewNote(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-              placeholder="Add a note..."
-              className="flex-1 bg-zinc-900 border border-zinc-700 focus:border-indigo-500 rounded-xl px-3 py-2 text-sm text-white placeholder:text-zinc-500 outline-none transition-colors"
-            />
-            <button
-              onClick={handleAddNote}
-              disabled={!newNote.trim()}
-              className="bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-900 disabled:text-zinc-700 text-zinc-300 rounded-xl px-3 py-2 text-sm transition-colors"
-            >
-              Add
-            </button>
-          </div>
-          {umbrella.notes.length === 0 && (
-            <p className="text-zinc-600 text-sm">No notes yet.</p>
-          )}
-          <div className="space-y-2">
-            {umbrella.notes.map((note, i) => (
-              <div key={i} className="flex items-start gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
-                <p className="flex-1 text-sm text-zinc-300 whitespace-pre-wrap">{note}</p>
-                <button
-                  onClick={() => deleteNote(umbrella.id, i)}
-                  className="text-zinc-600 hover:text-red-400 text-lg leading-none transition-colors shrink-0"
-                  aria-label="Delete note"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
+
+      {/* Floating sparkle FAB */}
+      <button
+        onClick={() => navigate('chat')}
+        style={{
+          position: 'fixed', right: 20, bottom: 100,
+          width: 52, height: 52, borderRadius: 18, border: 'none',
+          background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
+          boxShadow: '0 4px 16px rgba(107,142,153,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+          animation: 'sparkle 2.5s ease-in-out infinite',
+        }}
+      >
+        <Icon name="sparkle" size={22} color="#fff" strokeWidth={1.8} />
+      </button>
     </div>
   )
 }

@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { T } from './lib/theme'
 import BottomNav, { type NavScreen } from './components/BottomNav'
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
-
-type AppScreen = NavScreen | 'umbrella'
-
-interface ScreenData {
-  umbrellaId?: string
-}
+import HomeScreen from './components/HomeScreen'
+import UmbrellaDetail from './components/UmbrellaDetail'
+import ChatScreen from './components/ChatScreen'
+import CheckinScreen from './components/CheckinScreen'
+import ProfileScreen from './components/ProfileScreen'
+import { useStore, findUmbrella } from './store/useStore'
+import type { AppScreen, ScreenData } from './types/nav'
 
 interface NavEntry {
   screen: AppScreen
@@ -28,10 +27,13 @@ interface AuthState {
   user?: AuthUser
 }
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
+
 export default function App() {
   const [navStack, setNavStack] = useState<NavEntry[]>([{ screen: 'home', data: {} }])
   const [animDir, setAnimDir] = useState<'forward' | 'back'>('forward')
   const [auth, setAuth] = useState<AuthState>({ loading: true, authenticated: false })
+  const { umbrellas, loadUmbrellas } = useStore()
 
   const current = navStack[navStack.length - 1]
 
@@ -43,6 +45,10 @@ export default function App() {
       })
       .catch(() => setAuth({ loading: false, authenticated: false }))
   }, [])
+
+  useEffect(() => {
+    if (auth.authenticated) loadUmbrellas()
+  }, [auth.authenticated])
 
   function navigate(s: AppScreen, data?: ScreenData) {
     setAnimDir('forward')
@@ -56,13 +62,12 @@ export default function App() {
   }
 
   function activeNavScreen(): NavScreen {
-    return current.screen === 'umbrella' ? 'umbrellas' : current.screen
+    return current.screen === 'umbrella' ? 'umbrellas' : current.screen as NavScreen
   }
 
-  async function handleLogout() {
-    await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' })
-    window.location.reload()
-  }
+  const selectedUmbrella = current.screen === 'umbrella' && current.data.umbrellaId
+    ? findUmbrella(umbrellas, current.data.umbrellaId)
+    : null
 
   if (auth.loading) {
     return (
@@ -122,60 +127,19 @@ export default function App() {
         className={animDir === 'forward' ? 'screen-enter' : 'screen-back-enter'}
         style={{ height: '100%', overflowY: 'auto', paddingBottom: 82 }}
       >
-        {current.screen === 'home' && (
-          <div style={{ padding: '64px 20px 20px' }}>
-            <p style={{ color: T.charcoalLight, fontSize: 14 }}>HomeScreen coming next</p>
-          </div>
+        {current.screen === 'home' && <HomeScreen navigate={navigate} />}
+
+        {current.screen === 'umbrellas' && <HomeScreen navigate={navigate} />}
+
+        {current.screen === 'umbrella' && selectedUmbrella && (
+          <UmbrellaDetail umbrella={selectedUmbrella} navigate={navigate} goBack={goBack} />
         )}
 
-        {current.screen === 'umbrellas' && (
-          <div style={{ padding: '64px 20px 20px' }}>
-            <p style={{ color: T.charcoalLight, fontSize: 14 }}>UmbrellasScreen coming next</p>
-          </div>
-        )}
+        {current.screen === 'chat' && <ChatScreen />}
 
-        {current.screen === 'umbrella' && (
-          <div style={{ padding: '64px 20px 20px' }}>
-            <button
-              onClick={goBack}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.sage, fontSize: 14, fontFamily: 'inherit', marginBottom: 16 }}
-            >
-              ← Back
-            </button>
-            <p style={{ color: T.charcoalLight, fontSize: 14 }}>
-              UmbrellaDetail coming next — id: {current.data.umbrellaId}
-            </p>
-          </div>
-        )}
+        {current.screen === 'checkin' && <CheckinScreen navigate={navigate} />}
 
-        {current.screen === 'chat' && (
-          <div style={{ padding: '64px 20px 20px' }}>
-            <p style={{ color: T.charcoalLight, fontSize: 14 }}>ChatScreen coming next</p>
-          </div>
-        )}
-
-        {current.screen === 'checkin' && (
-          <div style={{ padding: '64px 20px 20px' }}>
-            <p style={{ color: T.charcoalLight, fontSize: 14 }}>CheckinScreen coming next</p>
-          </div>
-        )}
-
-        {current.screen === 'profile' && (
-          <div style={{ padding: '64px 20px 20px' }}>
-            <p style={{ color: T.charcoalLight, fontSize: 14, marginBottom: 20 }}>
-              ProfileScreen coming next — {auth.user?.displayName}
-            </p>
-            <button
-              onClick={handleLogout}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: T.red, fontSize: 14, fontFamily: 'inherit',
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        )}
+        {current.screen === 'profile' && <ProfileScreen user={auth.user} />}
       </div>
 
       <BottomNav

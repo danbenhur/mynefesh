@@ -5,15 +5,10 @@ function uid() {
   return Math.random().toString(36).slice(2)
 }
 
-const OPENING_MESSAGE: Message = {
-  id: 'system-open',
-  role: 'assistant',
-  content: "Hey Dan 👋 Quick heads up — your blood test is overdue and city bills are due May 1st. What do you want to tackle first, or is there something else on your mind?",
-  timestamp: new Date(),
-}
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
 
 export function useChat() {
-  const [messages, setMessages] = useState<Message[]>([OPENING_MESSAGE])
+  const [messages, setMessages] = useState<Message[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
 
   const send = useCallback(async (text: string) => {
@@ -25,7 +20,6 @@ export function useChat() {
       content: text.trim(),
       timestamp: new Date(),
     }
-
     const assistantId = uid()
     const assistantMsg: Message = {
       id: assistantId,
@@ -37,23 +31,12 @@ export function useChat() {
     setMessages(prev => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
 
-    // Build the API messages array (exclude the static opening message)
-    const apiMessages = [...messages, userMsg]
-      .filter(m => m.role !== 'system' && m.id !== 'system-open')
-      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-
-    // Add the opening message as the first assistant turn if it's the only prior message
-    if (messages.length === 1 && messages[0].id === 'system-open') {
-      apiMessages.unshift({ role: 'assistant', content: OPENING_MESSAGE.content })
-    }
-
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
-
     try {
-      const res = await fetch(`${apiBase}/api/chat`, {
+      const res = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages }),
+        credentials: 'include',
+        body: JSON.stringify({ messages: [{ role: 'user', content: text.trim() }] }),
       })
 
       if (!res.ok || !res.body) throw new Error('Bad response')
@@ -74,15 +57,12 @@ export function useChat() {
           if (!line.startsWith('data: ')) continue
           const payload = line.slice(6)
           if (payload === '[DONE]') continue
-
           try {
-            const { text, error } = JSON.parse(payload)
-            if (error) throw new Error(error)
-            if (text) {
+            const { text: chunk, error } = JSON.parse(payload)
+            if (error) throw new Error(error as string)
+            if (chunk) {
               setMessages(prev =>
-                prev.map(m =>
-                  m.id === assistantId ? { ...m, content: m.content + text } : m
-                )
+                prev.map(m => m.id === assistantId ? { ...m, content: m.content + chunk } : m)
               )
             }
           } catch {
@@ -93,15 +73,13 @@ export function useChat() {
     } catch {
       setMessages(prev =>
         prev.map(m =>
-          m.id === assistantId
-            ? { ...m, content: 'Something went wrong. Try again.' }
-            : m
+          m.id === assistantId ? { ...m, content: 'Something went wrong. Try again.' } : m
         )
       )
     } finally {
       setIsStreaming(false)
     }
-  }, [messages, isStreaming])
+  }, [isStreaming])
 
   return { messages, send, isStreaming }
 }
