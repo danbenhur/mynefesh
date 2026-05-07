@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
@@ -46,6 +46,26 @@ export const healthHistory = pgTable('health_history', {
   umbrellaId: uuid('umbrella_id').notNull().references(() => umbrellas.id, { onDelete: 'cascade' }),
   score: integer('score').notNull(),
   recordedAt: timestamp('recorded_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const whatsappStateEnum = pgEnum('whatsapp_state', ['pending', 'snoozed', 'completed', 'final_sent'])
+
+export const userSettings = pgTable('user_settings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  checkinTime: text('checkin_time').notNull().default('21:00'),
+  phoneNumber: text('phone_number'),
+  timezone: text('timezone').notNull().default('Asia/Jerusalem'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const whatsappSession = pgTable('whatsapp_session', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  date: date('date').notNull().unique(),
+  state: whatsappStateEnum('state').notNull().default('pending'),
+  snoozeCount: integer('snooze_count').notNull().default(0),
+  lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+  nextSendAt: timestamp('next_send_at', { withTimezone: true }),
 })
 
 // No FK — chat is a global log, not per-umbrella (for now)

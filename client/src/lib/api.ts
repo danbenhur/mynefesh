@@ -102,3 +102,15 @@ export const getChatHistory = (limit = 50) =>
 
 export const getHealthHistory = (umbrellaId: string, days = 42) =>
   req<ApiHealthSnapshot[]>(`/api/health-history?umbrella=${umbrellaId}&days=${days}`)
+
+export interface ApiSettings {
+  checkinTime: string
+  phoneNumber: string
+  timezone: string
+}
+
+export const getSettings = () =>
+  req<ApiSettings>('/api/settings')
+
+export const updateSettings = (patch: Partial<Pick<ApiSettings, 'checkinTime' | 'phoneNumber'>>) =>
+  req<ApiSettings>('/api/settings', { method: 'PATCH', body: JSON.stringify(patch) })

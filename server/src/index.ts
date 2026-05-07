@@ -13,6 +13,9 @@ import chatRouter from './routes/chat.js'
 import umbrellasRouter from './routes/umbrellas.js'
 import tasksRouter from './routes/tasks.js'
 import healthHistoryRouter from './routes/health-history.js'
+import webhookRouter from './routes/webhook.js'
+import settingsRouter from './routes/settings.js'
+import { startScheduler } from './lib/scheduler.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -49,6 +52,9 @@ app.get('/api/health', (_req, res) => {
 })
 app.use('/auth', authRouter)
 
+// Twilio webhook — public, form-encoded body, must be before requireAuth
+app.use('/webhook', express.urlencoded({ extended: false }), webhookRouter)
+
 // All /api/* routes beyond this point require a valid session
 app.use('/api', requireAuth)
 
@@ -56,6 +62,7 @@ app.use('/api/umbrellas', umbrellasRouter)
 app.use('/api/tasks', tasksRouter)
 app.use('/api/health-history', healthHistoryRouter)
 app.use('/api/chat', chatRouter)
+app.use('/api/settings', settingsRouter)
 
 // Run migrations before accepting traffic. Skipped if DATABASE_URL is absent (local dev without DB).
 if (process.env.DATABASE_URL) {
@@ -67,6 +74,8 @@ if (process.env.DATABASE_URL) {
     console.error('Migration failed — exiting:', err)
     process.exit(1)
   }
+
+  startScheduler()
 }
 
 app.listen(PORT, () => {

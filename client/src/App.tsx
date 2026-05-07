@@ -6,6 +6,7 @@ import UmbrellaDetail from './components/UmbrellaDetail'
 import ChatScreen from './components/ChatScreen'
 import CheckinScreen from './components/CheckinScreen'
 import ProfileScreen from './components/ProfileScreen'
+import SettingsScreen from './components/SettingsScreen'
 import { useStore, findUmbrella } from './store/useStore'
 import type { AppScreen, ScreenData } from './types/nav'
 
@@ -62,7 +63,9 @@ export default function App() {
   }
 
   function activeNavScreen(): NavScreen {
-    return current.screen === 'umbrella' ? 'umbrellas' : current.screen as NavScreen
+    if (current.screen === 'umbrella') return 'umbrellas'
+    if (current.screen === 'settings') return 'profile'
+    return current.screen as NavScreen
   }
 
   const selectedUmbrella = current.screen === 'umbrella' && current.data.umbrellaId
@@ -139,7 +142,9 @@ export default function App() {
 
         {current.screen === 'checkin' && <CheckinScreen navigate={navigate} />}
 
-        {current.screen === 'profile' && <ProfileScreen user={auth.user} />}
+        {current.screen === 'profile' && <ProfileScreen user={auth.user} navigate={navigate} />}
+
+        {current.screen === 'settings' && <SettingsScreen navigate={navigate} goBack={goBack} />}
       </div>
 
       <BottomNav

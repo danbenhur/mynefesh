@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore'
 import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Icon from './Icon'
+import type { NavigateFn } from '../types/nav'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
 
@@ -15,6 +16,7 @@ interface AuthUser {
 
 interface Props {
   user?: AuthUser
+  navigate: NavigateFn
 }
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -82,19 +84,24 @@ function SectionHeader({ title }: { title: string }) {
 }
 
 function Row({
-  label, detail, right, last,
+  label, detail, right, last, onClick,
 }: {
   label: string
   detail?: string
   right?: React.ReactNode
   last?: boolean
+  onClick?: () => void
 }) {
   return (
-    <div style={{
-      padding: '14px 16px', minHeight: 52,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      borderBottom: last ? 'none' : '1px solid rgba(44,44,42,0.06)',
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        padding: '14px 16px', minHeight: 52,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: last ? 'none' : '1px solid rgba(44,44,42,0.06)',
+        cursor: onClick ? 'pointer' : undefined,
+      }}
+    >
       <div>
         <p style={{ fontSize: 14, color: T.charcoal, fontWeight: 500 }}>{label}</p>
         {detail && <p style={{ fontSize: 12, color: T.charcoalLight, marginTop: 2 }}>{detail}</p>}
@@ -104,7 +111,7 @@ function Row({
   )
 }
 
-export default function ProfileScreen({ user }: Props) {
+export default function ProfileScreen({ user, navigate }: Props) {
   const umbrellas = useStore(s => s.umbrellas)
 
   const [notifications, setNotifications] = useState({
@@ -203,7 +210,13 @@ export default function ProfileScreen({ user }: Props) {
             label="Shabbat mode"
             detail="Quiet from Friday sundown"
             right={<Toggle value={notifications.shabbatMode} onChange={v => setNotifications(n => ({ ...n, shabbatMode: v }))} />}
+          />
+          <Row
+            label="צ'ק-אין WhatsApp"
+            detail="הגדרות שליחה יומית"
+            right={<Icon name="chevron" size={18} color={T.charcoalLight} />}
             last
+            onClick={() => navigate('settings')}
           />
         </div>
 
