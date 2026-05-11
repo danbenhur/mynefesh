@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date, doublePrecision } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
@@ -69,7 +69,8 @@ export const whatsappSession = pgTable('whatsapp_session', {
 })
 
 export const cadenceEnum = pgEnum('cadence', ['daily', 'weekly', 'monthly', 'annual'])
-export const answerTypeEnum = pgEnum('answer_type', ['text', 'scale'])
+export const answerTypeEnum = pgEnum('answer_type', ['text', 'scale', 'boolean', 'boolean_partial'])
+export const answerBooleanValueEnum = pgEnum('answer_boolean_value', ['yes', 'no', 'partial'])
 
 export const umbrellaQuestions = pgTable('umbrella_questions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -80,6 +81,8 @@ export const umbrellaQuestions = pgTable('umbrella_questions', {
   dayOfMonth: integer('day_of_month'),    // 1-31, monthly + annual
   monthOfYear: integer('month_of_year'),  // 1-12, annual only
   answerType: answerTypeEnum('answer_type').notNull().default('text'),
+  scaleMin: integer('scale_min'),
+  scaleMax: integer('scale_max'),
   position: integer('position').notNull().default(0),
   enabled: boolean('enabled').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -92,6 +95,8 @@ export const questionAnswers = pgTable('question_answers', {
   interviewDate: date('interview_date').notNull(),
   answerText: text('answer_text'),
   answerScale: integer('answer_scale'),
+  answerBoolean: answerBooleanValueEnum('answer_boolean'),
+  answerNormalized: doublePrecision('answer_normalized'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

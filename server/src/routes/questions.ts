@@ -16,9 +16,21 @@ function qShape(q: QRow) {
     dayOfMonth: q.dayOfMonth,
     monthOfYear: q.monthOfYear,
     answerType: q.answerType,
+    scaleMin: q.scaleMin,
+    scaleMax: q.scaleMax,
     position: q.position,
     enabled: q.enabled,
   }
+}
+
+const ANSWER_TYPES = ['text', 'scale', 'boolean', 'boolean_partial'] as const
+
+const scaleCheck = (data: { answerType?: string; scaleMin?: number | null; scaleMax?: number | null }) => {
+  if (data.answerType === 'scale') {
+    if (data.scaleMin == null || data.scaleMax == null) return false
+    return data.scaleMin < data.scaleMax
+  }
+  return true
 }
 
 const CreateSchema = z.object({
@@ -27,9 +39,14 @@ const CreateSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
   dayOfMonth: z.number().int().min(1).max(31).nullable().optional(),
   monthOfYear: z.number().int().min(1).max(12).nullable().optional(),
-  answerType: z.enum(['text', 'scale']).default('text'),
+  answerType: z.enum(ANSWER_TYPES).default('text'),
+  scaleMin: z.number().int().nullable().optional(),
+  scaleMax: z.number().int().nullable().optional(),
   position: z.number().int().default(0),
   enabled: z.boolean().default(true),
+}).refine(scaleCheck, {
+  message: 'scale requires scaleMin and scaleMax with scaleMin < scaleMax',
+  path: ['scaleMin'],
 })
 
 const PatchSchema = z.object({
@@ -38,10 +55,15 @@ const PatchSchema = z.object({
   dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
   dayOfMonth: z.number().int().min(1).max(31).nullable().optional(),
   monthOfYear: z.number().int().min(1).max(12).nullable().optional(),
-  answerType: z.enum(['text', 'scale']).optional(),
+  answerType: z.enum(ANSWER_TYPES).optional(),
+  scaleMin: z.number().int().nullable().optional(),
+  scaleMax: z.number().int().nullable().optional(),
   position: z.number().int().optional(),
   enabled: z.boolean().optional(),
-}).strict()
+}).strict().refine(scaleCheck, {
+  message: 'scale requires scaleMin < scaleMax',
+  path: ['scaleMin'],
+})
 
 // Mounted at /api/umbrellas — handles /:umbrellaId/questions
 export const umbrellaQuestionsRouter = Router()

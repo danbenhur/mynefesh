@@ -68,6 +68,8 @@ interface FormState {
   dayOfMonth: number
   monthOfYear: number
   answerType: AnswerType
+  scaleMin: number
+  scaleMax: number
 }
 
 const DEFAULT_FORM: FormState = {
@@ -77,6 +79,8 @@ const DEFAULT_FORM: FormState = {
   dayOfMonth: 1,
   monthOfYear: 1,
   answerType: 'text',
+  scaleMin: 1,
+  scaleMax: 5,
 }
 
 function questionToForm(q: Question): FormState {
@@ -87,6 +91,8 @@ function questionToForm(q: Question): FormState {
     dayOfMonth: q.dayOfMonth ?? 1,
     monthOfYear: q.monthOfYear ?? 1,
     answerType: q.answerType,
+    scaleMin: q.scaleMin ?? 1,
+    scaleMax: q.scaleMax ?? 5,
   }
 }
 
@@ -98,6 +104,8 @@ function formToPayload(f: FormState) {
     dayOfMonth: (f.cadence === 'monthly' || f.cadence === 'annual') ? f.dayOfMonth : null,
     monthOfYear: f.cadence === 'annual' ? f.monthOfYear : null,
     answerType: f.answerType,
+    scaleMin: f.answerType === 'scale' ? f.scaleMin : null,
+    scaleMax: f.answerType === 'scale' ? f.scaleMax : null,
     position: 0,
     enabled: true,
   }
@@ -229,34 +237,78 @@ function QuestionForm({ form, onChange, onSave, onCancel, saving }: QuestionForm
       <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         סוג תשובה
       </p>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {(['text', 'scale'] as AnswerType[]).map(t => (
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        {([
+          ['text', 'טקסט'],
+          ['scale', 'סולם'],
+          ['boolean', 'כן/לא'],
+          ['boolean_partial', 'כן/לא/חלקית'],
+        ] as [AnswerType, string][]).map(([t, label]) => (
           <button
             key={t}
             onClick={() => set('answerType', t)}
             style={{
-              padding: '5px 16px', borderRadius: 20, border: 'none', cursor: 'pointer',
+              padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
               background: form.answerType === t ? T.sage : T.sageLight,
               color: form.answerType === t ? '#fff' : T.charcoalMid,
               transition: 'all 0.15s',
             }}
           >
-            {t === 'text' ? 'טקסט' : 'סולם 1-5'}
+            {label}
           </button>
         ))}
       </div>
+
+      {form.answerType === 'scale' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: T.charcoalMid }}>מינימום</span>
+            <input
+              type="number"
+              value={form.scaleMin}
+              onChange={e => set('scaleMin', Number(e.target.value))}
+              min={0}
+              style={{
+                width: 56, background: T.bg, border: `1px solid ${T.sageMid}`,
+                borderRadius: 8, padding: '5px 8px', fontSize: 13,
+                color: T.charcoal, fontFamily: 'inherit', outline: 'none', textAlign: 'center',
+              }}
+            />
+          </div>
+          <span style={{ color: T.charcoalLight }}>—</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: T.charcoalMid }}>מקסימום</span>
+            <input
+              type="number"
+              value={form.scaleMax}
+              onChange={e => set('scaleMax', Number(e.target.value))}
+              min={1}
+              style={{
+                width: 56, background: T.bg, border: `1px solid ${form.scaleMin >= form.scaleMax ? T.red : T.sageMid}`,
+                borderRadius: 8, padding: '5px 8px', fontSize: 13,
+                color: T.charcoal, fontFamily: 'inherit', outline: 'none', textAlign: 'center',
+              }}
+            />
+          </div>
+          {form.scaleMin >= form.scaleMax && (
+            <span style={{ fontSize: 11, color: T.red }}>מינ׳ חייב להיות קטן ממקסימום</span>
+          )}
+        </div>
+      )}
+
+      {form.answerType !== 'scale' && <div style={{ marginBottom: 6 }} />}
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={onSave}
-          disabled={!form.text.trim() || saving}
+          disabled={!form.text.trim() || saving || (form.answerType === 'scale' && form.scaleMin >= form.scaleMax)}
           style={{
             flex: 1, background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
             color: '#fff', borderRadius: 10, border: 'none', padding: '9px 0',
             fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-            opacity: !form.text.trim() || saving ? 0.5 : 1,
+            opacity: !form.text.trim() || saving || (form.answerType === 'scale' && form.scaleMin >= form.scaleMax) ? 0.5 : 1,
           }}
         >
           {saving ? 'שומר…' : 'שמור'}
@@ -562,13 +614,17 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                           }}>
                             {cadenceLabel(q)}
                           </span>
-                          {q.answerType === 'scale' && (
+                          {q.answerType !== 'text' && (
                             <span style={{
                               display: 'inline-block', padding: '2px 8px', borderRadius: 20,
                               background: T.charcoalLight + '20', color: T.charcoalLight,
                               fontSize: 11, fontWeight: 600,
                             }}>
-                              1-5
+                              {q.answerType === 'scale'
+                                ? `${q.scaleMin ?? 1}-${q.scaleMax ?? 5}`
+                                : q.answerType === 'boolean'
+                                  ? 'כן/לא'
+                                  : 'כן/לא/חלקית'}
                             </span>
                           )}
                         </div>

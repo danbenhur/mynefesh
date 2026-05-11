@@ -123,7 +123,9 @@ export interface ApiQuestion {
   dayOfWeek: number | null
   dayOfMonth: number | null
   monthOfYear: number | null
-  answerType: 'text' | 'scale'
+  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial'
+  scaleMin: number | null
+  scaleMax: number | null
   position: number
   enabled: boolean
 }

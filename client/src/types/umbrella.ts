@@ -44,7 +44,7 @@ export interface Umbrella {
 }
 
 export type Cadence = 'daily' | 'weekly' | 'monthly' | 'annual'
-export type AnswerType = 'text' | 'scale'
+export type AnswerType = 'text' | 'scale' | 'boolean' | 'boolean_partial'
 
 export interface Question {
   id: string
@@ -55,6 +55,8 @@ export interface Question {
   dayOfMonth: number | null
   monthOfYear: number | null
   answerType: AnswerType
+  scaleMin: number | null
+  scaleMax: number | null
   position: number
   enabled: boolean
 }
