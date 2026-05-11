@@ -15,6 +15,13 @@
       "when": 1778194272342,
       "tag": "0001_dashing_risque",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778503465073,
+      "tag": "0002_mushy_spitfire",
+      "breakpoints": true
     }
   ]
 }

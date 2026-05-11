@@ -42,3 +42,19 @@ export interface Umbrella {
   children: Umbrella[]
   history: HealthSnapshot[]
 }
+
+export type Cadence = 'daily' | 'weekly' | 'monthly' | 'annual'
+export type AnswerType = 'text' | 'scale'
+
+export interface Question {
+  id: string
+  umbrellaId: string
+  text: string
+  cadence: Cadence
+  dayOfWeek: number | null
+  dayOfMonth: number | null
+  monthOfYear: number | null
+  answerType: AnswerType
+  position: number
+  enabled: boolean
+}

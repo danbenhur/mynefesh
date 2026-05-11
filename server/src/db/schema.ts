@@ -68,6 +68,33 @@ export const whatsappSession = pgTable('whatsapp_session', {
   nextSendAt: timestamp('next_send_at', { withTimezone: true }),
 })
 
+export const cadenceEnum = pgEnum('cadence', ['daily', 'weekly', 'monthly', 'annual'])
+export const answerTypeEnum = pgEnum('answer_type', ['text', 'scale'])
+
+export const umbrellaQuestions = pgTable('umbrella_questions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  umbrellaId: uuid('umbrella_id').notNull().references(() => umbrellas.id, { onDelete: 'cascade' }),
+  text: text('text').notNull(),
+  cadence: cadenceEnum('cadence').notNull(),
+  dayOfWeek: integer('day_of_week'),      // 0-6, weekly only
+  dayOfMonth: integer('day_of_month'),    // 1-31, monthly + annual
+  monthOfYear: integer('month_of_year'),  // 1-12, annual only
+  answerType: answerTypeEnum('answer_type').notNull().default('text'),
+  position: integer('position').notNull().default(0),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const questionAnswers = pgTable('question_answers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  questionId: uuid('question_id').notNull().references(() => umbrellaQuestions.id, { onDelete: 'cascade' }),
+  interviewDate: date('interview_date').notNull(),
+  answerText: text('answer_text'),
+  answerScale: integer('answer_scale'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 // No FK — chat is a global log, not per-umbrella (for now)
 export const chatMessages = pgTable('chat_messages', {
   id: uuid('id').defaultRandom().primaryKey(),

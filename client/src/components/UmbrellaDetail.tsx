@@ -1,14 +1,42 @@
+import { useState, useEffect } from 'react'
 import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
+import { listQuestions, createQuestion, updateQuestion, deleteQuestion } from '../lib/api'
 import type { Umbrella } from '../types/umbrella'
+import type { Question, Cadence, AnswerType } from '../types/umbrella'
 import type { NavigateFn } from '../types/nav'
 
 const PRIORITY_COLOR: Record<string, string> = {
   high: T.red,
   medium: T.amber,
   low: T.blue,
+}
+
+const HE_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+const HE_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+
+const CADENCE_COLOR: Record<Cadence, string> = {
+  daily: T.sage,
+  weekly: T.blue,
+  monthly: T.amber,
+  annual: T.purple,
+}
+
+const CADENCE_HE: Record<Cadence, string> = {
+  daily: 'יומי',
+  weekly: 'שבועי',
+  monthly: 'חודשי',
+  annual: 'שנתי',
+}
+
+function cadenceLabel(q: Question): string {
+  if (q.cadence === 'daily') return 'יומי'
+  if (q.cadence === 'weekly') return `שבועי - ${q.dayOfWeek !== null ? HE_DAYS[q.dayOfWeek] : '?'}`
+  if (q.cadence === 'monthly') return `חודשי - ${q.dayOfMonth ?? '?'}`
+  if (q.cadence === 'annual') return `שנתי - ${q.dayOfMonth ?? '?'}/${q.monthOfYear ?? '?'}`
+  return q.cadence
 }
 
 function relativeDate(dateStr: string): string {
@@ -33,6 +61,221 @@ function childSparkData(u: Umbrella): number[] {
   return sorted.length >= 2 ? sorted : [u.healthScore]
 }
 
+interface FormState {
+  text: string
+  cadence: Cadence
+  dayOfWeek: number
+  dayOfMonth: number
+  monthOfYear: number
+  answerType: AnswerType
+}
+
+const DEFAULT_FORM: FormState = {
+  text: '',
+  cadence: 'daily',
+  dayOfWeek: 0,
+  dayOfMonth: 1,
+  monthOfYear: 1,
+  answerType: 'text',
+}
+
+function questionToForm(q: Question): FormState {
+  return {
+    text: q.text,
+    cadence: q.cadence,
+    dayOfWeek: q.dayOfWeek ?? 0,
+    dayOfMonth: q.dayOfMonth ?? 1,
+    monthOfYear: q.monthOfYear ?? 1,
+    answerType: q.answerType,
+  }
+}
+
+function formToPayload(f: FormState) {
+  return {
+    text: f.text,
+    cadence: f.cadence,
+    dayOfWeek: f.cadence === 'weekly' ? f.dayOfWeek : null,
+    dayOfMonth: (f.cadence === 'monthly' || f.cadence === 'annual') ? f.dayOfMonth : null,
+    monthOfYear: f.cadence === 'annual' ? f.monthOfYear : null,
+    answerType: f.answerType,
+    position: 0,
+    enabled: true,
+  }
+}
+
+interface QuestionFormProps {
+  form: FormState
+  onChange: (f: FormState) => void
+  onSave: () => void
+  onCancel: () => void
+  saving: boolean
+}
+
+function QuestionForm({ form, onChange, onSave, onCancel, saving }: QuestionFormProps) {
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    onChange({ ...form, [k]: v })
+
+  return (
+    <div dir="rtl" style={{
+      background: T.bgCard, borderRadius: 16, padding: 16,
+      boxShadow: '0 2px 12px rgba(44,44,42,0.08)',
+      border: `1px solid ${T.sageMid}`,
+    }}>
+      {/* Question text */}
+      <textarea
+        value={form.text}
+        onChange={e => set('text', e.target.value)}
+        placeholder="מה תרצה לשאול?"
+        rows={2}
+        style={{
+          width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
+          borderRadius: 10, padding: '8px 12px', fontSize: 13, color: T.charcoal,
+          fontFamily: 'inherit', outline: 'none', resize: 'none',
+          boxSizing: 'border-box', marginBottom: 12, lineHeight: 1.5,
+        }}
+      />
+
+      {/* Cadence */}
+      <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+        תדירות
+      </p>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        {(['daily', 'weekly', 'monthly', 'annual'] as Cadence[]).map(c => (
+          <button
+            key={c}
+            onClick={() => set('cadence', c)}
+            style={{
+              padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+              background: form.cadence === c ? CADENCE_COLOR[c] : T.sageLight,
+              color: form.cadence === c ? '#fff' : T.charcoalMid,
+              transition: 'all 0.15s',
+            }}
+          >
+            {CADENCE_HE[c]}
+          </button>
+        ))}
+      </div>
+
+      {/* Conditional scheduling fields */}
+      {form.cadence === 'weekly' && (
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            יום בשבוע
+          </p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {HE_DAYS.map((day, i) => (
+              <button
+                key={i}
+                onClick={() => set('dayOfWeek', i)}
+                style={{
+                  padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 12,
+                  background: form.dayOfWeek === i ? T.blue : T.blueLight,
+                  color: form.dayOfWeek === i ? '#fff' : T.charcoalMid,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(form.cadence === 'monthly' || form.cadence === 'annual') && (
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            יום בחודש
+          </p>
+          <select
+            value={form.dayOfMonth}
+            onChange={e => set('dayOfMonth', Number(e.target.value))}
+            style={{
+              background: T.bg, border: `1px solid ${T.sageMid}`, borderRadius: 10,
+              padding: '6px 12px', fontSize: 13, color: T.charcoal, fontFamily: 'inherit',
+              outline: 'none', cursor: 'pointer',
+            }}
+          >
+            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {form.cadence === 'annual' && (
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            חודש
+          </p>
+          <select
+            value={form.monthOfYear}
+            onChange={e => set('monthOfYear', Number(e.target.value))}
+            style={{
+              background: T.bg, border: `1px solid ${T.sageMid}`, borderRadius: 10,
+              padding: '6px 12px', fontSize: 13, color: T.charcoal, fontFamily: 'inherit',
+              outline: 'none', cursor: 'pointer',
+            }}
+          >
+            {HE_MONTHS.map((m, i) => (
+              <option key={i + 1} value={i + 1}>{m}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Answer type */}
+      <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+        סוג תשובה
+      </p>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+        {(['text', 'scale'] as AnswerType[]).map(t => (
+          <button
+            key={t}
+            onClick={() => set('answerType', t)}
+            style={{
+              padding: '5px 16px', borderRadius: 20, border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+              background: form.answerType === t ? T.sage : T.sageLight,
+              color: form.answerType === t ? '#fff' : T.charcoalMid,
+              transition: 'all 0.15s',
+            }}
+          >
+            {t === 'text' ? 'טקסט' : 'סולם 1-5'}
+          </button>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={onSave}
+          disabled={!form.text.trim() || saving}
+          style={{
+            flex: 1, background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
+            color: '#fff', borderRadius: 10, border: 'none', padding: '9px 0',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            opacity: !form.text.trim() || saving ? 0.5 : 1,
+          }}
+        >
+          {saving ? 'שומר…' : 'שמור'}
+        </button>
+        <button
+          onClick={onCancel}
+          style={{
+            flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10,
+            border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          ביטול
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   umbrella: Umbrella
   navigate: NavigateFn
@@ -45,6 +288,61 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const trendData = [...umbrella.history]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(h => h.score)
+
+  // Questions state
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [loadingQ, setLoadingQ] = useState(true)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [addForm, setAddForm] = useState<FormState>(DEFAULT_FORM)
+  const [editForm, setEditForm] = useState<FormState>(DEFAULT_FORM)
+  const [saving, setSaving] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoadingQ(true)
+    listQuestions(umbrella.id)
+      .then(setQuestions)
+      .catch(() => setQuestions([]))
+      .finally(() => setLoadingQ(false))
+  }, [umbrella.id])
+
+  async function handleAdd() {
+    if (!addForm.text.trim()) return
+    setSaving(true)
+    try {
+      const q = await createQuestion(umbrella.id, formToPayload(addForm))
+      setQuestions(prev => [...prev, q as Question])
+      setAddForm(DEFAULT_FORM)
+      setShowAddForm(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function startEdit(q: Question) {
+    setEditingId(q.id)
+    setEditForm(questionToForm(q))
+    setShowAddForm(false)
+  }
+
+  async function handleEdit() {
+    if (!editForm.text.trim() || !editingId) return
+    setSaving(true)
+    try {
+      const updated = await updateQuestion(editingId, formToPayload(editForm))
+      setQuestions(prev => prev.map(q => q.id === editingId ? (updated as Question) : q))
+      setEditingId(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    await deleteQuestion(id)
+    setQuestions(prev => prev.filter(q => q.id !== id))
+    setConfirmDeleteId(null)
+  }
 
   return (
     <div style={{ minHeight: '100%', background: T.bg, paddingBottom: 100 }}>
@@ -178,6 +476,162 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
             No sub-areas yet.
           </div>
         )}
+
+        {/* ── Questions section ─────────────────────────────────── */}
+        <div style={{ marginTop: 24 }} dir="rtl">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal }}>שאלות</p>
+            {!loadingQ && (
+              <span style={{ fontSize: 11, color: T.charcoalLight }}>
+                {questions.length} שאלות
+              </span>
+            )}
+          </div>
+
+          {loadingQ && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
+              <div style={{
+                width: 20, height: 20, border: `2px solid ${T.sage}`,
+                borderTopColor: 'transparent', borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+            </div>
+          )}
+
+          {!loadingQ && questions.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+              {questions.map(q => (
+                <div key={q.id}>
+                  {editingId === q.id ? (
+                    <QuestionForm
+                      form={editForm}
+                      onChange={setEditForm}
+                      onSave={handleEdit}
+                      onCancel={() => setEditingId(null)}
+                      saving={saving}
+                    />
+                  ) : confirmDeleteId === q.id ? (
+                    <div style={{
+                      background: T.bgCard, borderRadius: 14, padding: '12px 14px',
+                      boxShadow: '0 1px 6px rgba(44,44,42,0.06)',
+                      border: `1px solid ${T.red}22`,
+                    }}>
+                      <p style={{ fontSize: 13, color: T.charcoal, marginBottom: 10 }}>
+                        למחוק את השאלה "{q.text}"?
+                      </p>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => handleDelete(q.id)}
+                          style={{
+                            flex: 1, background: T.red, color: '#fff', borderRadius: 8,
+                            border: 'none', padding: '7px 0', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          מחק
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          style={{
+                            flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 8,
+                            border: 'none', padding: '7px 0', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          ביטול
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: T.bgCard, borderRadius: 14, padding: '12px 14px',
+                      boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      opacity: q.enabled ? 1 : 0.5,
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, color: T.charcoal, lineHeight: 1.4, marginBottom: 6 }}>
+                          {q.text}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{
+                            display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                            background: CADENCE_COLOR[q.cadence] + '20',
+                            color: CADENCE_COLOR[q.cadence],
+                            fontSize: 11, fontWeight: 600,
+                          }}>
+                            {cadenceLabel(q)}
+                          </span>
+                          {q.answerType === 'scale' && (
+                            <span style={{
+                              display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                              background: T.charcoalLight + '20', color: T.charcoalLight,
+                              fontSize: 11, fontWeight: 600,
+                            }}>
+                              1-5
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        <button
+                          onClick={() => startEdit(q)}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontSize: 11, color: T.blue, fontWeight: 600, fontFamily: 'inherit',
+                            padding: '4px 6px',
+                          }}
+                        >
+                          ערוך
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(q.id)}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontSize: 11, color: T.red, fontWeight: 600, fontFamily: 'inherit',
+                            padding: '4px 6px',
+                          }}
+                        >
+                          מחק
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loadingQ && questions.length === 0 && !showAddForm && (
+            <p style={{ fontSize: 12, color: T.charcoalLight, fontStyle: 'italic', marginBottom: 10, textAlign: 'center' }}>
+              אין שאלות עדיין. הוסף שאלות לצ׳ק-אין היומי שלך.
+            </p>
+          )}
+
+          {showAddForm ? (
+            <QuestionForm
+              form={addForm}
+              onChange={setAddForm}
+              onSave={handleAdd}
+              onCancel={() => { setShowAddForm(false); setAddForm(DEFAULT_FORM) }}
+              saving={saving}
+            />
+          ) : (
+            <button
+              onClick={() => { setShowAddForm(true); setEditingId(null) }}
+              style={{
+                width: '100%', background: 'transparent',
+                border: `1.5px dashed ${T.sageMid}`, borderRadius: 14,
+                padding: '10px 16px', color: T.charcoalLight, fontSize: 13,
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <Icon name="plus" size={14} color={T.charcoalLight} />
+              הוסף שאלה
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Floating sparkle FAB */}

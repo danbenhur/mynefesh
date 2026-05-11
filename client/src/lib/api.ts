@@ -114,3 +114,31 @@ export const getSettings = () =>
 
 export const updateSettings = (patch: Partial<Pick<ApiSettings, 'checkinTime' | 'phoneNumber'>>) =>
   req<ApiSettings>('/api/settings', { method: 'PATCH', body: JSON.stringify(patch) })
+
+export interface ApiQuestion {
+  id: string
+  umbrellaId: string
+  text: string
+  cadence: 'daily' | 'weekly' | 'monthly' | 'annual'
+  dayOfWeek: number | null
+  dayOfMonth: number | null
+  monthOfYear: number | null
+  answerType: 'text' | 'scale'
+  position: number
+  enabled: boolean
+}
+
+export const listQuestions = (umbrellaId: string) =>
+  req<ApiQuestion[]>(`/api/umbrellas/${umbrellaId}/questions`)
+
+export const createQuestion = (umbrellaId: string, body: Omit<ApiQuestion, 'id' | 'umbrellaId'>) =>
+  req<ApiQuestion>(`/api/umbrellas/${umbrellaId}/questions`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+export const updateQuestion = (id: string, patch: Partial<Omit<ApiQuestion, 'id' | 'umbrellaId'>>) =>
+  req<ApiQuestion>(`/api/questions/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+
+export const deleteQuestion = (id: string) =>
+  req<void>(`/api/questions/${id}`, { method: 'DELETE' })
