@@ -52,11 +52,15 @@ async function tickCheckin() {
     if (session.state === 'completed' || session.state === 'final_sent') return
 
     if (session.state === 'pending' && hhmm >= settings.checkinTime) {
-      await sendWhatsApp(INITIAL)
-      await db
-        .update(whatsappSession)
-        .set({ state: 'snoozed', lastMessageAt: new Date() })
-        .where(eq(whatsappSession.id, session.id))
+      const sid = await sendWhatsApp(INITIAL)
+      if (sid) {
+        await db
+          .update(whatsappSession)
+          .set({ state: 'snoozed', lastMessageAt: new Date() })
+          .where(eq(whatsappSession.id, session.id))
+      } else {
+        console.log('[scheduler] Send failed — leaving state=pending, will retry next minute')
+      }
     }
   } catch (err) {
     console.error('[scheduler] tickCheckin error:', err)

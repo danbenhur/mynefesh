@@ -15,6 +15,7 @@ import tasksRouter from './routes/tasks.js'
 import healthHistoryRouter from './routes/health-history.js'
 import webhookRouter from './routes/webhook.js'
 import settingsRouter from './routes/settings.js'
+import whatsappAdminRouter from './routes/whatsapp-admin.js'
 import { startScheduler } from './lib/scheduler.js'
 
 const app = express()
@@ -63,6 +64,7 @@ app.use('/api/tasks', tasksRouter)
 app.use('/api/health-history', healthHistoryRouter)
 app.use('/api/chat', chatRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/whatsapp', whatsappAdminRouter)
 
 // Run migrations before accepting traffic. Skipped if DATABASE_URL is absent (local dev without DB).
 if (process.env.DATABASE_URL) {

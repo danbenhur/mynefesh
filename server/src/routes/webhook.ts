@@ -46,26 +46,38 @@ router.post('/whatsapp', async (req, res) => {
     const isDone = ['done', 'בוצע', 'finished', 'סיימתי', 'גמרתי'].includes(body)
 
     if (isDone) {
-      await db
-        .update(whatsappSession)
-        .set({ state: 'completed', lastMessageAt: new Date() })
-        .where(eq(whatsappSession.id, session.id))
-      await sendWhatsApp(CHECKIN_THANKS)
+      const sid = await sendWhatsApp(CHECKIN_THANKS)
+      if (sid) {
+        await db
+          .update(whatsappSession)
+          .set({ state: 'completed', lastMessageAt: new Date() })
+          .where(eq(whatsappSession.id, session.id))
+      } else {
+        console.log('[webhook] Thanks send failed — state unchanged, user can reply again')
+      }
     } else {
       // treat any reply that isn't a done keyword as a snooze
       const newCount = session.snoozeCount + 1
       if (newCount >= 3) {
-        await db
-          .update(whatsappSession)
-          .set({ state: 'final_sent', snoozeCount: newCount, lastMessageAt: new Date() })
-          .where(eq(whatsappSession.id, session.id))
-        await sendWhatsApp(FINAL)
+        const sid = await sendWhatsApp(FINAL)
+        if (sid) {
+          await db
+            .update(whatsappSession)
+            .set({ state: 'final_sent', snoozeCount: newCount, lastMessageAt: new Date() })
+            .where(eq(whatsappSession.id, session.id))
+        } else {
+          console.log('[webhook] Final send failed — state unchanged, will retry on next snooze reply')
+        }
       } else {
-        await db
-          .update(whatsappSession)
-          .set({ snoozeCount: newCount, lastMessageAt: new Date() })
-          .where(eq(whatsappSession.id, session.id))
-        await sendWhatsApp(SNOOZE_FOLLOWUP)
+        const sid = await sendWhatsApp(SNOOZE_FOLLOWUP)
+        if (sid) {
+          await db
+            .update(whatsappSession)
+            .set({ snoozeCount: newCount, lastMessageAt: new Date() })
+            .where(eq(whatsappSession.id, session.id))
+        } else {
+          console.log('[webhook] Snooze followup send failed — snooze_count unchanged, user can reply again')
+        }
       }
     }
   } catch (err) {
