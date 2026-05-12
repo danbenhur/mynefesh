@@ -5,7 +5,8 @@ import passport from 'passport'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { migrate } from 'drizzle-orm/node-postgres/migrator'
-import { getDb } from './db/index.js'
+import { getDb, getPgPool } from './db/index.js'
+import pgSessionImport from 'connect-pg-simple'
 import './auth.js'
 import { requireAuth } from './auth.js'
 import authRouter from './routes/auth.js'
@@ -25,6 +26,16 @@ const PORT = process.env.PORT ?? 3001
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173'
 const isDev = process.env.NODE_ENV === 'development'
 
+const PgStore = pgSessionImport(session)
+const pgPool = getPgPool()
+const sessionStore = pgPool
+  ? new PgStore({ pool: pgPool, tableName: 'user_sessions', createTableIfMissing: true })
+  : undefined  // falls back to MemoryStore when DATABASE_URL is absent
+
+if (!pgPool) {
+  console.warn('[session] DATABASE_URL not set — using MemoryStore (dev only)')
+}
+
 // Required for express-session to set Secure cookies behind Render/any reverse proxy.
 // Without this, req.secure is always false (proxy terminates TLS), so Set-Cookie is skipped.
 app.set('trust proxy', 1)
@@ -34,6 +45,7 @@ app.use(express.json())
 
 app.use(
   session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET ?? 'dev-secret-change-me',
     resave: false,
     saveUninitialized: false,
