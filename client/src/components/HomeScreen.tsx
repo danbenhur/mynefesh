@@ -212,7 +212,7 @@ export default function HomeScreen({ navigate }: Props) {
                   fontFamily: 'inherit', opacity: markingJoined ? 0.7 : 1,
                 }}
               >
-                {markingJoined ? 'Saving…' : 'I've re-joined ✓'}
+                {markingJoined ? 'Saving…' : "I've re-joined ✓"}
               </button>
             </div>
           </div>
