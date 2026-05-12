@@ -201,12 +201,13 @@ router.post('/migrate-public', async (_req, res) => {
     `)
     results.push('drizzle.__drizzle_migrations ready')
 
-    // Collect hashes already recorded
-    const existing = await client.query<{ hash: string }>(
-      `SELECT hash FROM drizzle.__drizzle_migrations`
+    // Use created_at (= journal 'when') as the stable migration identity.
+    // Hash comparison fails across OS line-ending differences; 'when' is deterministic.
+    const existing = await client.query<{ created_at: string }>(
+      `SELECT created_at FROM drizzle.__drizzle_migrations`
     )
-    const appliedHashes = new Set(existing.rows.map(r => r.hash))
-    results.push(`Already recorded: ${appliedHashes.size} migration(s)`)
+    const appliedWhens = new Set(existing.rows.map(r => Number(r.created_at)))
+    results.push(`Already recorded: ${appliedWhens.size} migration(s) by when-value`)
 
     // Locate the drizzle/ migrations folder relative to this built file
     const thisDir = dirname(fileURLToPath(import.meta.url))
@@ -238,11 +239,8 @@ router.post('/migrate-public', async (_req, res) => {
     }
 
     for (const entry of journal.entries) {
-      const content = readFileSync(join(migrationsFolder, entry.tag + '.sql'), 'utf8')
-      const hash = createHash('sha256').update(content).digest('hex')
-
-      if (appliedHashes.has(hash)) {
-        results.push(`Skip ${entry.tag} (${hash.slice(0, 8)}…): already recorded`)
+      if (appliedWhens.has(entry.when)) {
+        results.push(`Skip ${entry.tag} (when=${entry.when}): already recorded`)
         continue
       }
 
@@ -253,13 +251,15 @@ router.post('/migrate-public', async (_req, res) => {
         results.push(`SQL: ${stmt.trim().slice(0, 70)}…`)
       }
 
-      // Record the migration
+      // Record the migration using server-side hash so future Drizzle runs recognise it
+      const content = readFileSync(join(migrationsFolder, entry.tag + '.sql'), 'utf8')
+      const hash = createHash('sha256').update(content).digest('hex')
       await client.query(
         `INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`,
         [hash, entry.when]
       )
-      appliedHashes.add(hash)
-      results.push(`Recorded ${entry.tag} (${hash.slice(0, 8)}…)`)
+      appliedWhens.add(entry.when)
+      results.push(`Recorded ${entry.tag} (hash=${hash.slice(0, 8)}…)`)
     }
 
     // Verify user_settings now has the 0004 columns
