@@ -1,6 +1,6 @@
 import { Router } from 'express'
-import { desc, eq } from 'drizzle-orm'
-import { getDb } from '../db/index.js'
+import { desc, eq, sql } from 'drizzle-orm'
+import { getDb, getPgPool } from '../db/index.js'
 import { whatsappSession, userSettings } from '../db/schema.js'
 
 const router = Router()
@@ -100,6 +100,72 @@ router.post('/reset-today-public', async (_req, res) => {
     const after = { date: updated[0].date, state: updated[0].state, snoozeCount: updated[0].snoozeCount, lastMessageAt: updated[0].lastMessageAt }
 
     res.json({ ok: true, today, before, after })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// Returns column names + data types for a given table via information_schema
+// Also returns which migrations are recorded in __drizzle_migrations
+router.get('/schema-public', async (req, res) => {
+  const pool = getPgPool()
+  if (!pool) {
+    res.status(503).json({ error: 'No DATABASE_URL' })
+    return
+  }
+  try {
+    const table = String(req.query.table ?? 'user_settings')
+    const client = await pool.connect()
+    try {
+      const cols = await client.query(
+        `SELECT column_name, data_type, is_nullable, column_default
+         FROM information_schema.columns
+         WHERE table_name = $1
+         ORDER BY ordinal_position`,
+        [table]
+      )
+      const drizzleMigrations = await client.query(
+        `SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at`
+      ).catch(() => ({ rows: [] }))  // table may not exist
+      const allTables = await client.query(
+        `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`
+      )
+      res.json({
+        table,
+        columns: cols.rows,
+        drizzle_migrations: drizzleMigrations.rows,
+        public_tables: allTables.rows.map((r: { table_name: string }) => r.table_name),
+      })
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// Runs raw SQL — POST body: { sql: string }
+// Only accepts ALTER TABLE / CREATE TABLE statements as a safety guard
+router.post('/run-sql-public', async (req, res) => {
+  const pool = getPgPool()
+  if (!pool) {
+    res.status(503).json({ error: 'No DATABASE_URL' })
+    return
+  }
+  const rawSql: string = req.body?.sql ?? ''
+  const normalized = rawSql.trim().toUpperCase()
+  if (!normalized.startsWith('ALTER TABLE') && !normalized.startsWith('CREATE TABLE') && !normalized.startsWith('INSERT')) {
+    res.status(400).json({ error: 'Only ALTER TABLE / CREATE TABLE / INSERT allowed' })
+    return
+  }
+  try {
+    const client = await pool.connect()
+    try {
+      await client.query(rawSql)
+      res.json({ ok: true, sql: rawSql })
+    } finally {
+      client.release()
+    }
   } catch (err) {
     res.status(500).json({ error: String(err) })
   }
