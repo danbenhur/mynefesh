@@ -156,3 +156,65 @@ export const getSandboxStatus = () =>
 
 export const markSandboxJoined = () =>
   req<{ ok: boolean; lastSandboxJoinAt: string }>('/api/sandbox/joined', { method: 'POST' })
+
+export interface ApiComposedQuestion {
+  id: string
+  umbrellaId: string
+  umbrellaName: string
+  umbrellaIcon: string
+  umbrellaColor: string | null
+  text: string
+  cadence: 'daily' | 'weekly' | 'monthly' | 'annual'
+  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial'
+  scaleMin: number | null
+  scaleMax: number | null
+  position: number
+}
+
+export interface ApiInterviewSession {
+  id: string
+  date: string
+  startedAt: string | null
+  completedAt: string | null
+  currentIndex: number
+}
+
+export interface ApiTodaysInterview {
+  questions: ApiComposedQuestion[]
+  session: ApiInterviewSession
+}
+
+export const getTodaysInterview = () =>
+  req<ApiTodaysInterview>('/api/interview/today')
+
+export const submitInterviewAnswer = (payload: {
+  questionId: string
+  answerText?: string
+  answerScale?: number
+  answerBoolean?: 'yes' | 'no' | 'partial'
+}) =>
+  req<{ id: string; questionId: string; interviewDate: string; answerNormalized: number | null }>(
+    '/api/interview/answer',
+    { method: 'POST', body: JSON.stringify(payload) }
+  )
+
+export const completeInterview = () =>
+  req<{ id: string; date: string; completedAt: string }>('/api/interview/complete', { method: 'POST' })
+
+export interface ApiInterviewHistoryAnswer {
+  id: string
+  questionId: string
+  interviewDate: string
+  answerText: string | null
+  answerScale: number | null
+  answerBoolean: 'yes' | 'no' | 'partial' | null
+  answerNormalized: number | null
+}
+
+export interface ApiInterviewHistory {
+  sessions: ApiInterviewSession[]
+  answers: ApiInterviewHistoryAnswer[]
+}
+
+export const getInterviewHistory = (days = 30) =>
+  req<ApiInterviewHistory>(`/api/interview/history?days=${days}`)

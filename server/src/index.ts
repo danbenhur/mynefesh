@@ -20,6 +20,7 @@ import whatsappAdminRouter from './routes/whatsapp-admin.js'
 import { umbrellaQuestionsRouter, questionsRouter } from './routes/questions.js'
 import sandboxRouter from './routes/sandbox.js'
 import debugRouter from './routes/debug.js'
+import interviewRouter from './routes/interview.js'
 import { startScheduler } from './lib/scheduler.js'
 
 const app = express()
@@ -86,6 +87,7 @@ app.use('/api/whatsapp', whatsappAdminRouter)
 app.use('/api/umbrellas', umbrellaQuestionsRouter)
 app.use('/api/questions', questionsRouter)
 app.use('/api/sandbox', sandboxRouter)
+app.use('/api/interview', interviewRouter)
 
 // Run migrations before accepting traffic. Skipped if DATABASE_URL is absent (local dev without DB).
 if (process.env.DATABASE_URL) {

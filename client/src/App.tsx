@@ -7,6 +7,7 @@ import ChatScreen from './components/ChatScreen'
 import CheckinScreen from './components/CheckinScreen'
 import ProfileScreen from './components/ProfileScreen'
 import SettingsScreen from './components/SettingsScreen'
+import InterviewScreen from './components/InterviewScreen'
 import { useStore, findUmbrella } from './store/useStore'
 import type { AppScreen, ScreenData } from './types/nav'
 
@@ -51,6 +52,16 @@ export default function App() {
     if (auth.authenticated) loadUmbrellas()
   }, [auth.authenticated])
 
+  // Hash-based deep link: #/interview routes straight to the interview screen
+  useEffect(() => {
+    if (!auth.authenticated) return
+    if (window.location.hash === '#/interview') {
+      navigate('interview')
+      // Clear the hash so navigating back works cleanly
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [auth.authenticated])
+
   function navigate(s: AppScreen, data?: ScreenData) {
     setAnimDir('forward')
     setNavStack(stack => [...stack, { screen: s, data: data ?? {} }])
@@ -65,6 +76,7 @@ export default function App() {
   function activeNavScreen(): NavScreen {
     if (current.screen === 'umbrella') return 'umbrellas'
     if (current.screen === 'settings') return 'profile'
+    if (current.screen === 'interview') return 'home'
     return current.screen as NavScreen
   }
 
@@ -145,6 +157,8 @@ export default function App() {
         {current.screen === 'profile' && <ProfileScreen user={auth.user} navigate={navigate} />}
 
         {current.screen === 'settings' && <SettingsScreen navigate={navigate} goBack={goBack} />}
+
+        {current.screen === 'interview' && <InterviewScreen navigate={navigate} />}
       </div>
 
       <BottomNav

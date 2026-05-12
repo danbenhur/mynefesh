@@ -1,6 +1,10 @@
 export const INITIAL =
   "שלום דן 👋 הגיע הזמן לצ'ק-אין היומי שלך. איך היה היום? תן לי 2 דקות מזמנך 🙏"
 
+export function checkinWithLink(url: string): string {
+  return `שלום דן 👋 הצ'ק-אין הערב מוכן: ${url}`
+}
+
 export const SNOOZE_FOLLOWUP =
   'אני עדיין כאן 😊 דקה אחת, לא יותר. אתה שווה את זה.'
 

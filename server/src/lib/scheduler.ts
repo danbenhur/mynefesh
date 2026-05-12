@@ -3,7 +3,9 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { userSettings, whatsappSession } from '../db/schema.js'
 import { sendWhatsApp } from './whatsapp.js'
-import { INITIAL, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
+import { checkinWithLink, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
+
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 
 function jerusalemNow(): { hhmm: string; date: string } {
   const now = new Date()
@@ -52,7 +54,8 @@ async function tickCheckin() {
     if (session.state === 'completed' || session.state === 'final_sent') return
 
     if (session.state === 'pending' && hhmm >= settings.checkinTime) {
-      const sid = await sendWhatsApp(INITIAL)
+      const interviewUrl = `${FRONTEND_URL}/#/interview`
+      const sid = await sendWhatsApp(checkinWithLink(interviewUrl))
       if (sid) {
         await db
           .update(whatsappSession)

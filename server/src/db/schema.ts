@@ -104,6 +104,14 @@ export const questionAnswers = pgTable('question_answers', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
+export const interviewSession = pgTable('interview_session', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  date: date('date').notNull().unique(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  currentIndex: integer('current_index').notNull().default(0),
+})
+
 // No FK — chat is a global log, not per-umbrella (for now)
 export const chatMessages = pgTable('chat_messages', {
   id: uuid('id').defaultRandom().primaryKey(),
