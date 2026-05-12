@@ -1,4 +1,4 @@
-CREATE TABLE "interview_session" (
+CREATE TABLE IF NOT EXISTS "interview_session" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"date" date NOT NULL,
 	"started_at" timestamp with time zone,
