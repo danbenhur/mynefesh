@@ -144,3 +144,15 @@ export const updateQuestion = (id: string, patch: Partial<Omit<ApiQuestion, 'id'
 
 export const deleteQuestion = (id: string) =>
   req<void>(`/api/questions/${id}`, { method: 'DELETE' })
+
+export interface ApiSandboxStatus {
+  sandboxStatus: 'unknown' | 'active' | 'expired'
+  lastSandboxJoinAt: string | null
+  lastDeliveryFailureAt: string | null
+}
+
+export const getSandboxStatus = () =>
+  req<ApiSandboxStatus>('/api/sandbox/status')
+
+export const markSandboxJoined = () =>
+  req<{ ok: boolean; lastSandboxJoinAt: string }>('/api/sandbox/joined', { method: 'POST' })

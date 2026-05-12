@@ -22,7 +22,10 @@ export async function sendWhatsApp(text: string): Promise<string | null> {
   }
 
   try {
-    const msg = await client.messages.create({ from, to, body: text })
+    const statusCallback = process.env.PUBLIC_URL
+      ? `${process.env.PUBLIC_URL}/webhook/whatsapp-status`
+      : undefined
+    const msg = await client.messages.create({ from, to, body: text, statusCallback })
     console.log(`[whatsapp] Sent message SID=${msg.sid}`)
     return msg.sid
   } catch (err) {

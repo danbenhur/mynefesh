@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { userSettings, whatsappSession } from '../db/schema.js'
 import { sendWhatsApp } from './whatsapp.js'
-import { INITIAL, MORNING_AFTER_SKIP } from './whatsapp-messages.js'
+import { INITIAL, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
 
 function jerusalemNow(): { hhmm: string; date: string } {
   const now = new Date()
@@ -89,6 +89,33 @@ async function tickMorning() {
   }
 }
 
+async function tickSandboxReminder() {
+  try {
+    const settings = await getOrCreateSettings()
+    if (!settings.lastSandboxJoinAt) return
+
+    const hoursSinceJoin = (Date.now() - new Date(settings.lastSandboxJoinAt).getTime()) / 3_600_000
+    if (hoursSinceJoin < 60 || hoursSinceJoin >= 66) return
+
+    if (settings.last60hReminderAt) {
+      const hoursSinceReminder = (Date.now() - new Date(settings.last60hReminderAt).getTime()) / 3_600_000
+      if (hoursSinceReminder < 24) return
+    }
+
+    const sid = await sendWhatsApp(SANDBOX_EXPIRY_REMINDER)
+    if (sid) {
+      const db = getDb()
+      await db
+        .update(userSettings)
+        .set({ last60hReminderAt: new Date() })
+        .where(eq(userSettings.id, settings.id))
+      console.log('[scheduler] Sent 60h sandbox expiry reminder')
+    }
+  } catch (err) {
+    console.error('[scheduler] tickSandboxReminder error:', err)
+  }
+}
+
 export function startScheduler() {
   if (!process.env.DATABASE_URL) {
     console.log('[scheduler] No DATABASE_URL — scheduler disabled')
@@ -98,6 +125,7 @@ export function startScheduler() {
   cron.schedule('* * * * *', async () => {
     await tickCheckin()
     await tickMorning()
+    await tickSandboxReminder()
   })
 
   console.log('[scheduler] Started (runs every minute)')

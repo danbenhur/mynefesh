@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { whatsappSession } from '../db/schema.js'
+import { whatsappSession, userSettings } from '../db/schema.js'
 import { sendWhatsApp } from '../lib/whatsapp.js'
 import { SNOOZE_FOLLOWUP, FINAL, CHECKIN_THANKS } from '../lib/whatsapp-messages.js'
 
@@ -85,6 +85,27 @@ router.post('/whatsapp', async (req, res) => {
   }
 
   res.send(TWIML_OK)
+})
+
+// Twilio delivery status callback — updates sandbox_status on failure
+router.post('/whatsapp-status', async (req, res) => {
+  try {
+    const messageStatus = String(req.body?.MessageStatus ?? '')
+    if (messageStatus === 'failed' || messageStatus === 'undelivered') {
+      const db = getDb()
+      const rows = await db.select().from(userSettings).limit(1)
+      if (rows.length > 0) {
+        await db
+          .update(userSettings)
+          .set({ lastDeliveryFailureAt: new Date(), sandboxStatus: 'expired', updatedAt: new Date() })
+          .where(eq(userSettings.id, rows[0].id))
+        console.log(`[webhook] Delivery failure (${messageStatus}) — sandbox marked expired`)
+      }
+    }
+  } catch (err) {
+    console.error('[webhook] whatsapp-status callback error:', err)
+  }
+  res.sendStatus(204)
 })
 
 export default router

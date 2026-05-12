@@ -55,6 +55,10 @@ export const userSettings = pgTable('user_settings', {
   checkinTime: text('checkin_time').notNull().default('21:00'),
   phoneNumber: text('phone_number'),
   timezone: text('timezone').notNull().default('Asia/Jerusalem'),
+  lastSandboxJoinAt: timestamp('last_sandbox_join_at', { withTimezone: true }),
+  sandboxStatus: text('sandbox_status').notNull().default('unknown'),
+  lastDeliveryFailureAt: timestamp('last_delivery_failure_at', { withTimezone: true }),
+  last60hReminderAt: timestamp('last_60h_reminder_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

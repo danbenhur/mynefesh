@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { T } from '../lib/theme'
 import Icon from './Icon'
-import { getSettings, updateSettings } from '../lib/api'
+import { getSettings, updateSettings, getSandboxStatus, markSandboxJoined } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
 
 interface Props {
@@ -16,16 +16,31 @@ export default function SettingsScreen({ goBack }: Props) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [sandboxStatus, setSandboxStatus] = useState<'unknown' | 'active' | 'expired'>('unknown')
+  const [markingJoined, setMarkingJoined] = useState(false)
 
   useEffect(() => {
-    getSettings()
-      .then(s => {
+    Promise.all([getSettings(), getSandboxStatus()])
+      .then(([s, sb]) => {
         setCheckinTime(s.checkinTime)
         setPhoneNumber(s.phoneNumber ?? '')
+        setSandboxStatus(sb.sandboxStatus)
       })
       .catch(() => setError('שגיאה בטעינת ההגדרות'))
       .finally(() => setLoading(false))
   }, [])
+
+  async function handleMarkJoined() {
+    setMarkingJoined(true)
+    try {
+      await markSandboxJoined()
+      setSandboxStatus('active')
+    } catch {
+      // silent — banner stays visible
+    } finally {
+      setMarkingJoined(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -71,6 +86,34 @@ export default function SettingsScreen({ goBack }: Props) {
           Nefesh ישלח לך הודעת WhatsApp כל ערב
         </p>
       </div>
+
+      {sandboxStatus === 'expired' && (
+        <div style={{
+          margin: '12px 20px 0',
+          background: '#FFF3CD', borderRadius: 14, padding: '14px 16px',
+          border: '1px solid #FFE08A',
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#7A5C00', marginBottom: 6 }}>
+            ⚠️ חיבור ה-Sandbox פג תוקפו
+          </p>
+          <p style={{ fontSize: 12, color: '#7A5C00', lineHeight: 1.6, marginBottom: 10 }}>
+            הודעות WhatsApp לא יגיעו עד שתחדש את ה-sandbox.
+            שלח &quot;join &lt;קוד&gt;&quot; לדף ה-WhatsApp של Twilio, ואז לחץ למטה.
+          </p>
+          <button
+            onClick={handleMarkJoined}
+            disabled={markingJoined}
+            style={{
+              background: '#E6A817', border: 'none', borderRadius: 10,
+              padding: '8px 16px', fontSize: 13, fontWeight: 600,
+              color: '#fff', cursor: markingJoined ? 'default' : 'pointer',
+              fontFamily: 'inherit', opacity: markingJoined ? 0.7 : 1,
+            }}
+          >
+            {markingJoined ? 'שומר…' : 'סימנתי כמחודש ✓'}
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>

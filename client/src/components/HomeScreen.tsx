@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
+import { getSandboxStatus, markSandboxJoined } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
 import type { Umbrella } from '../types/umbrella'
 
@@ -132,6 +133,26 @@ export default function HomeScreen({ navigate }: Props) {
   const [newName, setNewName] = useState('')
   const [newIcon, setNewIcon] = useState('🏠')
   const [creating, setCreating] = useState(false)
+  const [sandboxExpired, setSandboxExpired] = useState(false)
+  const [markingJoined, setMarkingJoined] = useState(false)
+
+  useEffect(() => {
+    getSandboxStatus()
+      .then(s => { if (s.sandboxStatus === 'expired') setSandboxExpired(true) })
+      .catch(() => { /* silent — banner is optional */ })
+  }, [])
+
+  async function handleMarkJoined() {
+    setMarkingJoined(true)
+    try {
+      await markSandboxJoined()
+      setSandboxExpired(false)
+    } catch {
+      // silent
+    } finally {
+      setMarkingJoined(false)
+    }
+  }
 
   async function handleCreate() {
     if (!newName.trim()) return
@@ -164,6 +185,39 @@ export default function HomeScreen({ navigate }: Props) {
         </h1>
         <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 24 }}>{dateString()}</p>
       </div>
+
+      {/* Sandbox expiry banner */}
+      {sandboxExpired && (
+        <div style={{ padding: '0 20px', marginBottom: 12 }}>
+          <div style={{
+            background: '#FFF3CD', borderRadius: 14, padding: '14px 16px',
+            border: '1px solid #FFE08A',
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#7A5C00', marginBottom: 4 }}>
+                WhatsApp sandbox expired
+              </p>
+              <p style={{ fontSize: 12, color: '#7A5C00', lineHeight: 1.5, marginBottom: 8 }}>
+                Check-ins won't send until you re-join the Twilio sandbox. Go to Settings to renew.
+              </p>
+              <button
+                onClick={handleMarkJoined}
+                disabled={markingJoined}
+                style={{
+                  background: '#E6A817', border: 'none', borderRadius: 8,
+                  padding: '6px 12px', fontSize: 12, fontWeight: 600,
+                  color: '#fff', cursor: markingJoined ? 'default' : 'pointer',
+                  fontFamily: 'inherit', opacity: markingJoined ? 0.7 : 1,
+                }}
+              >
+                {markingJoined ? 'Saving…' : 'I've re-joined ✓'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Wellness Score card */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>

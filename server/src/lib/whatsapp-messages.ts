@@ -12,3 +12,6 @@ export const MORNING_AFTER_SKIP =
 
 export const CHECKIN_THANKS =
   'תודה דן 🌿 שמרתי הכל. לילה טוב — כל צעד קדימה חשוב.'
+
+export const SANDBOX_EXPIRY_REMINDER =
+  '⚠️ תזכורת: ה-Sandbox של Twilio פג תוקפו בעוד ~12 שעות. שלח "join <קוד>" ל-WhatsApp Sandbox כדי לחדש את החיבור.'
