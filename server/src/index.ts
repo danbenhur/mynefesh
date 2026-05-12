@@ -58,6 +58,9 @@ app.use('/auth', authRouter)
 // Twilio webhook — public, form-encoded body, must be before requireAuth
 app.use('/webhook', express.urlencoded({ extended: false }), webhookRouter)
 
+// Temporary public debug endpoint — remove after diagnostics
+app.use('/api/debug', debugRouter)
+
 // All /api/* routes beyond this point require a valid session
 app.use('/api', requireAuth)
 
@@ -69,7 +72,6 @@ app.use('/api/settings', settingsRouter)
 app.use('/api/whatsapp', whatsappAdminRouter)
 app.use('/api/umbrellas', umbrellaQuestionsRouter)
 app.use('/api/questions', questionsRouter)
-app.use('/api/debug', debugRouter)
 
 // Run migrations before accepting traffic. Skipped if DATABASE_URL is absent (local dev without DB).
 if (process.env.DATABASE_URL) {
