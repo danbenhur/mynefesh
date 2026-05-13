@@ -1,21 +1,22 @@
 import { Router } from 'express'
 import passport from 'passport'
-import type { GithubUser } from '../auth.js'
+import type { AuthUser } from '../auth.js'
 
 const router = Router()
 
-// GET /auth/github — kick off OAuth dance
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }))
+// GET /auth/google — kick off OAuth dance
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }))
 
-// GET /auth/github/callback — GitHub redirects here after authorization
+// GET /auth/google/callback — Google redirects here after authorization
 router.get(
-  '/github/callback',
+  '/google/callback',
   // session: false so we inspect the profile before committing it to the session
-  passport.authenticate('github', { session: false }),
+  passport.authenticate('google', { session: false }),
   (req, res) => {
-    const profile = req.user as GithubUser
+    const profile = req.user as AuthUser
 
-    if (profile.id !== process.env.ALLOWED_GITHUB_ID) {
+    const allowedEmail = (process.env.ALLOWED_GOOGLE_EMAIL ?? '').toLowerCase()
+    if (!allowedEmail || profile.username.toLowerCase() !== allowedEmail) {
       res.status(403).send('Access denied: not the authorized user')
       return
     }
@@ -33,7 +34,7 @@ router.get(
 // GET /auth/me — who is logged in?
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    const user = req.user as GithubUser
+    const user = req.user as AuthUser
     res.json({
       authenticated: true,
       user: {
