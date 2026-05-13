@@ -118,15 +118,28 @@ export default function App() {
         <p style={{ fontSize: 14, color: T.charcoalLight, marginBottom: 48 }}>
           Your personal AI life secretary
         </p>
-        {authError === 'email-mismatch' && (
+        {authError && (
           <div style={{
             background: '#fff3cd', border: '1px solid #ffc107',
             borderRadius: 12, padding: '12px 16px', marginBottom: 24,
             fontSize: 12, color: '#664d03', maxWidth: 320, textAlign: 'left',
           }}>
-            <strong>Login blocked — email mismatch</strong><br />
-            Google returned: <code>{gotEmail}</code><br />
-            Server expected: <code>{expectedEmail}</code>
+            {authError === 'email-mismatch' && (<>
+              <strong>Login blocked — email mismatch</strong><br />
+              Google returned: <code>{gotEmail}</code><br />
+              Server expected: <code>{expectedEmail}</code>
+            </>)}
+            {authError === 'login-failed' && (<>
+              <strong>Login failed (req.login error)</strong><br />
+              <code>{params.get('detail')}</code>
+            </>)}
+            {authError === 'session-save-failed' && (<>
+              <strong>Session save failed</strong><br />
+              <code>{params.get('detail')}</code>
+            </>)}
+            {!['email-mismatch','login-failed','session-save-failed'].includes(authError) && (<>
+              <strong>Auth error: {authError}</strong>
+            </>)}
           </div>
         )}
         <button

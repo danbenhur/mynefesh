@@ -33,14 +33,28 @@ router.get(
       return
     }
 
-    req.login(profile, (err) => {
-      if (err) {
-        console.error('[auth/google/callback] req.login error:', err)
-        res.status(500).json({ error: 'Session error' })
+    req.login(profile, (loginErr) => {
+      if (loginErr) {
+        console.error('[auth/google/callback] req.login error:', loginErr)
+        res.redirect(`${frontendUrl}/?auth_error=login-failed&detail=${encodeURIComponent(String(loginErr))}`)
         return
       }
-      console.log('[auth/google/callback] session established for', gotEmail)
-      res.redirect(frontendUrl)
+
+      console.log('[auth/google/callback] req.login ok, session id =', req.session.id)
+      console.log('[auth/google/callback] session.passport =', JSON.stringify((req.session as unknown as Record<string, unknown>).passport))
+
+      // Explicitly save the session before redirecting — without this the async
+      // Postgres store may not finish writing before the browser follows the redirect,
+      // causing /auth/me to see no session on the next request.
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('[auth/google/callback] session.save error:', saveErr)
+          res.redirect(`${frontendUrl}/?auth_error=session-save-failed&detail=${encodeURIComponent(String(saveErr))}`)
+          return
+        }
+        console.log('[auth/google/callback] session saved, redirecting')
+        res.redirect(frontendUrl)
+      })
     })
   }
 )
