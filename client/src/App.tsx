@@ -102,6 +102,11 @@ export default function App() {
   }
 
   if (!auth.authenticated) {
+    const params = new URLSearchParams(window.location.search)
+    const authError = params.get('auth_error')
+    const gotEmail = params.get('got')
+    const expectedEmail = params.get('expected')
+
     return (
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -113,6 +118,17 @@ export default function App() {
         <p style={{ fontSize: 14, color: T.charcoalLight, marginBottom: 48 }}>
           Your personal AI life secretary
         </p>
+        {authError === 'email-mismatch' && (
+          <div style={{
+            background: '#fff3cd', border: '1px solid #ffc107',
+            borderRadius: 12, padding: '12px 16px', marginBottom: 24,
+            fontSize: 12, color: '#664d03', maxWidth: 320, textAlign: 'left',
+          }}>
+            <strong>Login blocked — email mismatch</strong><br />
+            Google returned: <code>{gotEmail}</code><br />
+            Server expected: <code>{expectedEmail}</code>
+          </div>
+        )}
         <button
           onClick={() => { window.location.href = `${API_BASE}/auth/google` }}
           style={{

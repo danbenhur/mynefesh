@@ -14,19 +14,33 @@ router.get(
   passport.authenticate('google', { session: false }),
   (req, res) => {
     const profile = req.user as AuthUser
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 
+    const gotEmail = profile.username.toLowerCase()
     const allowedEmail = (process.env.ALLOWED_GOOGLE_EMAIL ?? '').toLowerCase()
-    if (!allowedEmail || profile.username.toLowerCase() !== allowedEmail) {
-      res.status(403).send('Access denied: not the authorized user')
+
+    console.log('[auth/google/callback] profile.username =', profile.username)
+    console.log('[auth/google/callback] ALLOWED_GOOGLE_EMAIL =', process.env.ALLOWED_GOOGLE_EMAIL)
+    console.log('[auth/google/callback] comparison:', gotEmail, '===', allowedEmail, '->', gotEmail === allowedEmail)
+
+    if (!allowedEmail || gotEmail !== allowedEmail) {
+      const params = new URLSearchParams({
+        auth_error: 'email-mismatch',
+        got: gotEmail,
+        expected: allowedEmail,
+      })
+      res.redirect(`${frontendUrl}/?${params.toString()}`)
       return
     }
 
     req.login(profile, (err) => {
       if (err) {
+        console.error('[auth/google/callback] req.login error:', err)
         res.status(500).json({ error: 'Session error' })
         return
       }
-      res.redirect(process.env.FRONTEND_URL ?? 'http://localhost:5173')
+      console.log('[auth/google/callback] session established for', gotEmail)
+      res.redirect(frontendUrl)
     })
   }
 )
