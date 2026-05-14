@@ -1,4 +1,4 @@
-export type AppScreen = 'home' | 'umbrellas' | 'umbrella' | 'chat' | 'checkin' | 'profile' | 'settings' | 'interview'
+export type AppScreen = 'home' | 'umbrellas' | 'umbrella' | 'chat' | 'checkin' | 'profile' | 'settings' | 'interview' | 'archived'
 
 export interface ScreenData {
   umbrellaId?: string

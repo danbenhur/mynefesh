@@ -41,6 +41,7 @@ export interface Umbrella {
   reminders: Reminder[]
   children: Umbrella[]
   history: HealthSnapshot[]
+  archivedAt: string | null
 }
 
 export type Cadence = 'daily' | 'weekly' | 'monthly' | 'annual'

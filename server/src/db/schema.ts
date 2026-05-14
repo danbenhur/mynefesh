@@ -16,6 +16,7 @@ export const umbrellas = pgTable('umbrellas', {
   healthScore: integer('health_score').notNull().default(50),
   notes: text('notes').array().notNull().default(sql`ARRAY[]::text[]`),
   position: integer('position').notNull().default(0),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

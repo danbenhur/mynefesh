@@ -3,7 +3,8 @@ import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
-import { listQuestions, createQuestion, updateQuestion, deleteQuestion } from '../lib/api'
+import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella } from '../lib/api'
+import { useStore } from '../store/useStore'
 import type { Umbrella } from '../types/umbrella'
 import type { Question, Cadence, AnswerType } from '../types/umbrella'
 import type { NavigateFn } from '../types/nav'
@@ -336,6 +337,7 @@ interface Props {
 
 export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const color = umbrellaColor(umbrella.name)
+  const { loadUmbrellas } = useStore()
 
   const trendData = [...umbrella.history]
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -350,6 +352,12 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [editForm, setEditForm] = useState<FormState>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  // Archive / delete state
+  const [archiving, setArchiving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     setLoadingQ(true)
@@ -394,6 +402,30 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
     await deleteQuestion(id)
     setQuestions(prev => prev.filter(q => q.id !== id))
     setConfirmDeleteId(null)
+  }
+
+  async function handleArchive() {
+    setArchiving(true)
+    try {
+      await archiveUmbrella(umbrella.id)
+      await loadUmbrellas()
+      setToast('המטרייה אורכבה')
+      setTimeout(() => { goBack() }, 1200)
+    } catch {
+      setArchiving(false)
+    }
+  }
+
+  async function handleDeleteUmbrella() {
+    setDeleting(true)
+    try {
+      await deleteUmbrella(umbrella.id)
+      await loadUmbrellas()
+      goBack()
+    } catch {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
   }
 
   return (
@@ -688,7 +720,86 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
             </button>
           )}
         </div>
+
+        {/* ── Archive / Delete section ──────────────────────────── */}
+        <div dir="rtl" style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid rgba(44,44,42,0.08)` }}>
+          {confirmDelete ? (
+            <div style={{
+              background: '#fff5f5', border: `1px solid ${T.red}33`,
+              borderRadius: 14, padding: '14px 16px',
+            }}>
+              <p style={{ fontSize: 13, color: T.charcoal, marginBottom: 4, fontWeight: 600 }}>
+                האם אתה בטוח?
+              </p>
+              <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 14, lineHeight: 1.5 }}>
+                פעולה זו תמחק את המטרייה וכל הנתונים שלה — לא ניתן לשחזר.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleDeleteUmbrella}
+                  disabled={deleting}
+                  style={{
+                    flex: 1, background: T.red, color: '#fff', borderRadius: 10,
+                    border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit', opacity: deleting ? 0.6 : 1,
+                  }}
+                >
+                  {deleting ? 'מוחק…' : 'מחק לצמיתות'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  style={{
+                    flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10,
+                    border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={handleArchive}
+                disabled={archiving}
+                style={{
+                  width: '100%', padding: '12px 0', borderRadius: 14, border: 'none',
+                  background: T.sageLight, color: T.charcoalMid,
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  opacity: archiving ? 0.6 : 1,
+                }}
+              >
+                {archiving ? 'מארכב…' : '📦 ארכוב המטרייה'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                style={{
+                  width: '100%', padding: '10px 0', borderRadius: 14,
+                  border: `1px solid ${T.red}44`, background: 'transparent',
+                  color: T.red, fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                מחק המטרייה
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)',
+          background: T.charcoal, color: '#fff', borderRadius: 20,
+          padding: '10px 20px', fontSize: 13, fontWeight: 600,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 100,
+          animation: 'nudge-float 0.3s ease both',
+        }}>
+          {toast}
+        </div>
+      )}
 
       {/* Floating sparkle FAB */}
       <button

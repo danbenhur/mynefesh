@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { eq, isNull } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { umbrellas, tasks, reminders, healthHistory } from '../db/schema.js'
 
@@ -54,6 +54,7 @@ function umbrellaShape(
     healthScore: u.healthScore,
     notes: u.notes,
     position: u.position,
+    archivedAt: u.archivedAt ? u.archivedAt.toISOString() : null,
     tasks: uTasks.map(taskShape),
     reminders: uReminders.map(reminderShape),
     history: uHistory.map(historyShape),
@@ -62,11 +63,16 @@ function umbrellaShape(
 }
 
 // GET /api/umbrellas — flat list; client builds tree from parentId
-router.get('/', async (_req, res) => {
+// ?include=archived returns all including archived; default excludes archived
+router.get('/', async (req, res) => {
   try {
     const db = getDb()
+    const includeArchived = req.query.include === 'archived'
+
     const [allUmbrellas, allTasks, allReminders, allHistory] = await Promise.all([
-      db.select().from(umbrellas),
+      includeArchived
+        ? db.select().from(umbrellas)
+        : db.select().from(umbrellas).where(isNull(umbrellas.archivedAt)),
       db.select().from(tasks),
       db.select().from(reminders),
       db.select().from(healthHistory),
@@ -119,6 +125,7 @@ const PatchSchema = z.object({
   healthScore: z.number().int().min(0).max(100).optional(),
   notes: z.array(z.string()).optional(),
   position: z.number().int().optional(),
+  archivedAt: z.string().datetime().nullable().optional(),
 }).strict()
 
 // PATCH /api/umbrellas/:id
@@ -134,8 +141,14 @@ router.patch('/:id', async (req, res) => {
   }
   try {
     const db = getDb()
+    const { archivedAt, ...rest } = parse.data
+    const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() }
+    if (archivedAt !== undefined) {
+      updates.archivedAt = archivedAt ? new Date(archivedAt) : null
+    }
+
     const [row] = await db.update(umbrellas)
-      .set({ ...parse.data, updatedAt: new Date() })
+      .set(updates)
       .where(eq(umbrellas.id, req.params.id))
       .returning()
     if (!row) { res.status(404).json({ error: 'Umbrella not found' }); return }
@@ -146,7 +159,7 @@ router.patch('/:id', async (req, res) => {
   }
 })
 
-// DELETE /api/umbrellas/:id
+// DELETE /api/umbrellas/:id — cascade removes all child data via FK
 router.delete('/:id', async (req, res) => {
   try {
     const db = getDb()

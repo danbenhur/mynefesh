@@ -8,6 +8,7 @@ import CheckinScreen from './components/CheckinScreen'
 import ProfileScreen from './components/ProfileScreen'
 import SettingsScreen from './components/SettingsScreen'
 import InterviewScreen from './components/InterviewScreen'
+import ArchivedScreen from './components/ArchivedScreen'
 import { useStore, findUmbrella } from './store/useStore'
 import type { AppScreen, ScreenData } from './types/nav'
 
@@ -77,6 +78,7 @@ export default function App() {
     if (current.screen === 'umbrella') return 'umbrellas'
     if (current.screen === 'settings') return 'profile'
     if (current.screen === 'interview') return 'home'
+    if (current.screen === 'archived') return 'home'
     return current.screen as NavScreen
   }
 
@@ -192,6 +194,8 @@ export default function App() {
         {current.screen === 'settings' && <SettingsScreen navigate={navigate} goBack={goBack} />}
 
         {current.screen === 'interview' && <InterviewScreen navigate={navigate} />}
+
+        {current.screen === 'archived' && <ArchivedScreen navigate={navigate} goBack={goBack} />}
       </div>
 
       <BottomNav

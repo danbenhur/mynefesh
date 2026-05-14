@@ -42,6 +42,7 @@ export interface ApiUmbrella {
   healthScore: number
   notes: string[]
   position: number
+  archivedAt: string | null
   tasks: ApiTask[]
   reminders: ApiReminder[]
   history: ApiHealthSnapshot[]
@@ -49,6 +50,9 @@ export interface ApiUmbrella {
 
 export const listUmbrellas = () =>
   req<ApiUmbrella[]>('/api/umbrellas')
+
+export const listArchivedUmbrellas = () =>
+  req<ApiUmbrella[]>('/api/umbrellas?include=archived').then(list => list.filter(u => u.archivedAt !== null))
 
 export const createUmbrella = (body: {
   name: string
@@ -65,7 +69,20 @@ export const updateUmbrella = (id: string, body: Partial<{
   healthScore: number
   notes: string[]
   position: number
+  archivedAt: string | null
 }>) => req<ApiUmbrella>(`/api/umbrellas/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+
+export const archiveUmbrella = (id: string) =>
+  req<ApiUmbrella>(`/api/umbrellas/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archivedAt: new Date().toISOString() }),
+  })
+
+export const unarchiveUmbrella = (id: string) =>
+  req<ApiUmbrella>(`/api/umbrellas/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archivedAt: null }),
+  })
 
 export const deleteUmbrella = (id: string) =>
   req<void>(`/api/umbrellas/${id}`, { method: 'DELETE' })

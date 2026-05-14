@@ -4,7 +4,7 @@ import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
-import { getSandboxStatus, markSandboxJoined } from '../lib/api'
+import { getSandboxStatus, markSandboxJoined, listArchivedUmbrellas } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
 import type { Umbrella } from '../types/umbrella'
 
@@ -135,11 +135,15 @@ export default function HomeScreen({ navigate }: Props) {
   const [creating, setCreating] = useState(false)
   const [sandboxExpired, setSandboxExpired] = useState(false)
   const [markingJoined, setMarkingJoined] = useState(false)
+  const [archivedCount, setArchivedCount] = useState(0)
 
   useEffect(() => {
     getSandboxStatus()
       .then(s => { if (s.sandboxStatus === 'expired') setSandboxExpired(true) })
       .catch(() => { /* silent — banner is optional */ })
+    listArchivedUmbrellas()
+      .then(list => setArchivedCount(list.length))
+      .catch(() => {})
   }, [])
 
   async function handleMarkJoined() {
@@ -390,6 +394,19 @@ export default function HomeScreen({ navigate }: Props) {
                 creating={creating} onCreate={handleCreate}
                 onCancel={() => { setShowCreate(false); setNewName(''); setNewIcon('🏠') }}
               />
+            )}
+
+            {archivedCount > 0 && (
+              <button
+                onClick={() => navigate('archived')}
+                style={{
+                  display: 'block', margin: '12px auto 0', background: 'none', border: 'none',
+                  color: T.charcoalLight, fontSize: 12, cursor: 'pointer',
+                  fontFamily: 'inherit', textDecoration: 'underline',
+                }}
+              >
+                ארכיון ({archivedCount})
+              </button>
             )}
           </>
         )}
