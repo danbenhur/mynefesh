@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { userSettings } from '../db/schema.js'
+import { userSettings, whatsappSession } from '../db/schema.js'
 
 const router = Router()
 
@@ -59,6 +59,31 @@ router.patch('/', async (req, res) => {
       .set(updates)
       .where(eq(userSettings.id, row.id))
       .returning()
+
+    // When checkinTime changes, reset today's session if it's snoozed so the
+    // evening tick can still fire. Skip completed/final_sent (already done for today).
+    if (parsed.data.checkinTime !== undefined) {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jerusalem',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(new Date()).reduce(
+        (acc, p) => p.type === 'literal' ? acc : { ...acc, [p.type]: p.value },
+        {} as Record<string, string>
+      )
+      const today = `${parts.year}-${parts.month}-${parts.day}`
+
+      const existing = await getDb()
+        .select({ state: whatsappSession.state })
+        .from(whatsappSession)
+        .where(eq(whatsappSession.date, today))
+
+      if (existing.length > 0 && existing[0].state === 'snoozed') {
+        await getDb()
+          .update(whatsappSession)
+          .set({ state: 'pending', snoozeCount: 0, lastMessageAt: null, nextSendAt: null })
+          .where(eq(whatsappSession.date, today))
+      }
+    }
 
     res.json({
       checkinTime: updated[0].checkinTime,
