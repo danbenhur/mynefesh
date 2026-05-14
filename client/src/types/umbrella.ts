@@ -36,12 +36,14 @@ export interface Umbrella {
   icon: string
   parentId: string | null
   healthScore: number
+  computedHealthScore: number | null
   notes: string[]
   tasks: Task[]
   reminders: Reminder[]
   children: Umbrella[]
   history: HealthSnapshot[]
   archivedAt: string | null
+  computedTrend: number[]  // daily scores 0-100, from analytics, may be empty
 }
 
 export type Cadence = 'daily' | 'weekly' | 'monthly' | 'annual'

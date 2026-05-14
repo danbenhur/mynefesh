@@ -49,10 +49,12 @@ function dateString() {
 }
 
 function sparklineData(u: Umbrella): number[] {
+  // Use analytics-derived trend when available; fall back to health history
+  if (u.computedTrend && u.computedTrend.length > 0) return u.computedTrend
   const sorted = [...u.history]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(h => h.score)
-  return sorted.length >= 2 ? sorted : [u.healthScore]
+  return sorted
 }
 
 interface CreateFormProps {
@@ -168,16 +170,20 @@ export default function HomeScreen({ navigate }: Props) {
     setCreating(false)
   }
 
-  const overallScore = umbrellas.length
-    ? Math.round(umbrellas.reduce((s, u) => s + u.healthScore, 0) / umbrellas.length)
+  const scoredUmbrellas = umbrellas.filter(u => u.computedHealthScore !== null)
+  const overallScore = scoredUmbrellas.length
+    ? Math.round(scoredUmbrellas.reduce((s, u) => s + (u.computedHealthScore ?? 0), 0) / scoredUmbrellas.length)
     : 0
+  const hasComputedData = scoredUmbrellas.length > 0
 
-  const lowCount = umbrellas.filter(u => u.healthScore < 60).length
+  const lowCount = scoredUmbrellas.filter(u => (u.computedHealthScore ?? 0) < 60).length
   const supportingLine = umbrellas.length === 0
     ? 'Add umbrellas to see your wellness score.'
-    : lowCount > 0
-      ? `${lowCount} area${lowCount === 1 ? '' : 's'} need attention this week.`
-      : 'All areas looking good this week.'
+    : !hasComputedData
+      ? 'Complete your daily interview to see your score.'
+      : lowCount > 0
+        ? `${lowCount} area${lowCount === 1 ? '' : 's'} need attention this week.`
+        : 'All areas looking good this week.'
 
   return (
     <div style={{ minHeight: '100%', background: T.bg, paddingBottom: 24 }}>
@@ -237,7 +243,7 @@ export default function HomeScreen({ navigate }: Props) {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1 }}>
-                {umbrellas.length ? overallScore : '—'}
+                {umbrellas.length && hasComputedData ? overallScore : '—'}
               </span>
               <span style={{ fontSize: 10, color: T.charcoalLight }}>/100</span>
             </div>
@@ -245,7 +251,7 @@ export default function HomeScreen({ navigate }: Props) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>Life Wellness Score</p>
             <p style={{ fontSize: 12, color: T.charcoalMid, lineHeight: 1.5, marginBottom: 10 }}>{supportingLine}</p>
-            {umbrellas.length > 0 && overallScore >= 50 && (
+            {umbrellas.length > 0 && hasComputedData && overallScore >= 50 && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 background: T.sageLight, color: T.sage,
@@ -361,12 +367,19 @@ export default function HomeScreen({ navigate }: Props) {
                       }}>
                         {u.icon}
                       </div>
-                      <Sparkline data={data} color={color} width={50} height={20} />
+                      {data.length > 0
+                        ? <Sparkline data={data} color={color} width={50} height={20} />
+                        : <span style={{ fontSize: 11, color: T.charcoalLight, alignSelf: 'center' }}>—</span>
+                      }
                     </div>
                     <p style={{ fontSize: 12, fontWeight: 700, color: T.charcoal, marginBottom: 2 }}>{u.name}</p>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-                      <span style={{ fontSize: 20, fontWeight: 700, color }}>{u.healthScore}</span>
-                      <span style={{ fontSize: 11, color: T.charcoalLight }}>/100</span>
+                      <span style={{ fontSize: 20, fontWeight: 700, color }}>
+                        {u.computedHealthScore ?? '—'}
+                      </span>
+                      {u.computedHealthScore !== null && (
+                        <span style={{ fontSize: 11, color: T.charcoalLight }}>/100</span>
+                      )}
                     </div>
                   </button>
                 )

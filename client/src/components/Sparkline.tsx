@@ -6,7 +6,15 @@ interface Props {
 }
 
 export default function Sparkline({ data, color, width = 60, height = 24 }: Props) {
-  if (data.length < 2) return null
+  if (data.length === 0) return null
+
+  if (data.length === 1) {
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <circle cx={width / 2} cy={height / 2} r={2.5} fill={color} />
+      </svg>
+    )
+  }
 
   const min = Math.max(0, Math.min(...data) - 5)
   const max = Math.min(100, Math.max(...data) + 5)

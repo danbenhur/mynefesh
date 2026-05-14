@@ -40,6 +40,7 @@ export interface ApiUmbrella {
   icon: string
   parentId: string | null
   healthScore: number
+  computedHealthScore: number | null
   notes: string[]
   position: number
   archivedAt: string | null
@@ -47,6 +48,28 @@ export interface ApiUmbrella {
   reminders: ApiReminder[]
   history: ApiHealthSnapshot[]
 }
+
+export interface ApiUmbrellaTrendPoint {
+  date: string
+  score: number
+}
+
+export interface ApiQuestionTrendPoint {
+  date: string
+  value: number | null
+  answerText: string | null
+  answerScale: number | null
+  answerBoolean: string | null
+}
+
+export const getUmbrellaHealthScores = (days = 14) =>
+  req<Record<string, number | null>>(`/api/analytics/umbrellas/health?days=${days}`)
+
+export const getUmbrellaTrend = (id: string, days = 42) =>
+  req<ApiUmbrellaTrendPoint[]>(`/api/analytics/umbrellas/${id}/trend?days=${days}`)
+
+export const getQuestionTrend = (id: string, days = 90) =>
+  req<ApiQuestionTrendPoint[]>(`/api/analytics/questions/${id}/trend?days=${days}`)
 
 export const listUmbrellas = () =>
   req<ApiUmbrella[]>('/api/umbrellas')

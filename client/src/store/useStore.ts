@@ -68,7 +68,19 @@ export const useStore = create<Store>()((set, get) => ({
     set({ loading: true, error: null })
     try {
       const flat = await api.listUmbrellas()
-      set({ umbrellas: buildTree(flat), loading: false })
+
+      // Fetch daily trends for every umbrella in parallel (best-effort)
+      const trendResults = await Promise.allSettled(
+        flat.map(u => api.getUmbrellaTrend(u.id, 42))
+      )
+
+      const flatWithTrends = flat.map((u, i) => {
+        const r = trendResults[i]
+        const computedTrend = r.status === 'fulfilled' ? r.value.map(p => p.score) : []
+        return { ...u, computedTrend }
+      })
+
+      set({ umbrellas: buildTree(flatWithTrends as unknown as api.ApiUmbrella[]), loading: false })
     } catch (err) {
       set({ loading: false, error: String(err) })
     }

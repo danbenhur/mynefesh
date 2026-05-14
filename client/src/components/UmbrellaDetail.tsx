@@ -3,7 +3,8 @@ import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
-import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella } from '../lib/api'
+import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend } from '../lib/api'
+import type { ApiUmbrellaTrendPoint, ApiQuestionTrendPoint } from '../lib/api'
 import { useStore } from '../store/useStore'
 import type { Umbrella } from '../types/umbrella'
 import type { Question, Cadence, AnswerType } from '../types/umbrella'
@@ -359,6 +360,10 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
+  // Analytics trends
+  const [umbrellaTrend, setUmbrellaTrend] = useState<ApiUmbrellaTrendPoint[]>([])
+  const [questionTrends, setQuestionTrends] = useState<Record<string, ApiQuestionTrendPoint[]>>({})
+
   useEffect(() => {
     setLoadingQ(true)
     listQuestions(umbrella.id)
@@ -366,6 +371,24 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
       .catch(() => setQuestions([]))
       .finally(() => setLoadingQ(false))
   }, [umbrella.id])
+
+  useEffect(() => {
+    getUmbrellaTrend(umbrella.id, 42)
+      .then(setUmbrellaTrend)
+      .catch(() => setUmbrellaTrend([]))
+  }, [umbrella.id])
+
+  useEffect(() => {
+    if (questions.length === 0) return
+    Promise.allSettled(questions.map(q => getQuestionTrend(q.id, 90))).then(results => {
+      const map: Record<string, ApiQuestionTrendPoint[]> = {}
+      questions.forEach((q, i) => {
+        const r = results[i]
+        map[q.id] = r.status === 'fulfilled' ? r.value : []
+      })
+      setQuestionTrends(map)
+    })
+  }, [questions])
 
   async function handleAdd() {
     if (!addForm.text.trim()) return
@@ -482,10 +505,10 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
           marginBottom: 16, boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
         }}>
           <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 10 }}>6-week trend</p>
-          {trendData.length >= 2
-            ? <Sparkline data={trendData} color={color} width={240} height={36} />
+          {umbrellaTrend.length > 0
+            ? <Sparkline data={umbrellaTrend.map(p => p.score)} color={color} width={280} height={36} />
             : <p style={{ fontSize: 12, color: T.charcoalLight, fontStyle: 'italic' }}>
-                No trend data yet. Check-in regularly to build your history.
+                No data yet — answer your daily interview to build a trend.
               </p>
           }
         </div>
@@ -720,6 +743,60 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
             </button>
           )}
         </div>
+
+        {/* ── Per-question trends ───────────────────────────────── */}
+        {(() => {
+          const questionsWithData = questions.filter(q => (questionTrends[q.id]?.length ?? 0) > 0)
+          if (questionsWithData.length === 0) return null
+          return (
+            <div dir="rtl" style={{ marginTop: 24 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>מגמות לפי שאלה</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {questionsWithData.map(q => {
+                  const pts = questionTrends[q.id] ?? []
+                  const latest = pts[pts.length - 1]
+                  const sparkData = pts
+                    .filter(p => p.value !== null)
+                    .map(p => Math.round((p.value ?? 0) * 100))
+                  const latestDisplay = (() => {
+                    if (!latest) return '—'
+                    if (latest.answerBoolean) {
+                      const HE: Record<string, string> = { yes: 'כן', no: 'לא', partial: 'חלקית' }
+                      return HE[latest.answerBoolean] ?? latest.answerBoolean
+                    }
+                    if (latest.answerScale !== null) return String(latest.answerScale)
+                    if (latest.answerText) return latest.answerText.slice(0, 18)
+                    if (latest.value !== null) return `${Math.round(latest.value * 100)}%`
+                    return '—'
+                  })()
+                  return (
+                    <div
+                      key={q.id}
+                      style={{
+                        background: T.bgCard, borderRadius: 14, padding: '10px 14px',
+                        boxShadow: '0 1px 4px rgba(44,44,42,0.05)',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, color: T.charcoal, lineHeight: 1.4 }}>{q.text}</p>
+                      </div>
+                      {sparkData.length > 0 && (
+                        <Sparkline data={sparkData} color={color} width={50} height={20} />
+                      )}
+                      <span style={{
+                        fontSize: 12, fontWeight: 700, color, flexShrink: 0,
+                        minWidth: 28, textAlign: 'center',
+                      }}>
+                        {latestDisplay}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ── Archive / Delete section ──────────────────────────── */}
         <div dir="rtl" style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid rgba(44,44,42,0.08)` }}>

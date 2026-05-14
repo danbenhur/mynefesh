@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { eq, isNull } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { umbrellas, tasks, reminders, healthHistory } from '../db/schema.js'
+import { getAllUmbrellaHealthScores } from '../lib/analytics.js'
 
 const router = Router()
 
@@ -44,14 +45,17 @@ function umbrellaShape(
   u: UmbrellaRow,
   uTasks: TaskRow[],
   uReminders: ReminderRow[],
-  uHistory: HistoryRow[]
+  uHistory: HistoryRow[],
+  computedHealthScore: number | null = null,
 ) {
   return {
     id: u.id,
     name: u.name,
     icon: u.icon,
     parentId: u.parentId,
+    // deprecated: prefer computedHealthScore (derived from interview answers)
     healthScore: u.healthScore,
+    computedHealthScore,
     notes: u.notes,
     position: u.position,
     archivedAt: u.archivedAt ? u.archivedAt.toISOString() : null,
@@ -69,13 +73,14 @@ router.get('/', async (req, res) => {
     const db = getDb()
     const includeArchived = req.query.include === 'archived'
 
-    const [allUmbrellas, allTasks, allReminders, allHistory] = await Promise.all([
+    const [allUmbrellas, allTasks, allReminders, allHistory, healthScores] = await Promise.all([
       includeArchived
         ? db.select().from(umbrellas)
         : db.select().from(umbrellas).where(isNull(umbrellas.archivedAt)),
       db.select().from(tasks),
       db.select().from(reminders),
       db.select().from(healthHistory),
+      getAllUmbrellaHealthScores(14),
     ])
     const result = allUmbrellas
       .sort((a, b) => a.position - b.position)
@@ -84,6 +89,7 @@ router.get('/', async (req, res) => {
         allTasks.filter(t => t.umbrellaId === u.id),
         allReminders.filter(r => r.umbrellaId === u.id),
         allHistory.filter(h => h.umbrellaId === u.id),
+        healthScores[u.id] ?? null,
       ))
     res.json(result)
   } catch (err) {
@@ -111,7 +117,7 @@ router.post('/', async (req, res) => {
   try {
     const db = getDb()
     const [row] = await db.insert(umbrellas).values(parse.data).returning()
-    res.status(201).json(umbrellaShape(row, [], [], []))
+    res.status(201).json(umbrellaShape(row, [], [], [], null))
   } catch (err) {
     console.error('POST /umbrellas:', err)
     res.status(500).json({ error: 'Failed to create umbrella' })
