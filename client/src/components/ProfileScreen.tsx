@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Icon from './Icon'
+import { getSettings, updateSettings } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
@@ -117,8 +118,23 @@ export default function ProfileScreen({ user, navigate }: Props) {
   const [notifications, setNotifications] = useState({
     morningBrief: true,
     aiNudges: true,
-    shabbatMode: false,
+    shabbatMode: true,
   })
+
+  useEffect(() => {
+    getSettings().then(s => {
+      setNotifications(n => ({ ...n, shabbatMode: s.shabbatMode }))
+    }).catch(() => {})
+  }, [])
+
+  async function handleShabbatToggle(v: boolean) {
+    setNotifications(n => ({ ...n, shabbatMode: v }))
+    try {
+      await updateSettings({ shabbatMode: v })
+    } catch {
+      setNotifications(n => ({ ...n, shabbatMode: !v }))
+    }
+  }
   const [personality, setPersonality] = useState<'warm' | 'direct' | 'spiritual'>('warm')
   const [language, setLanguage] = useState<'en' | 'he'>('en')
 
@@ -209,7 +225,7 @@ export default function ProfileScreen({ user, navigate }: Props) {
           <Row
             label="Shabbat mode"
             detail="Quiet from Friday sundown"
-            right={<Toggle value={notifications.shabbatMode} onChange={v => setNotifications(n => ({ ...n, shabbatMode: v }))} />}
+            right={<Toggle value={notifications.shabbatMode} onChange={handleShabbatToggle} />}
           />
           <Row
             label="צ'ק-אין WhatsApp"

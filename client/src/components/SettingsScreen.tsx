@@ -9,9 +9,33 @@ interface Props {
   goBack: () => void
 }
 
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!value)}
+      style={{
+        width: 44, height: 26, borderRadius: 13, padding: 0,
+        background: value ? '#6B8F71' : '#D8D5CF',
+        border: 'none', cursor: 'pointer', position: 'relative',
+        transition: 'background 0.2s', flexShrink: 0,
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: 3,
+        left: value ? 21 : 3,
+        width: 20, height: 20, borderRadius: '50%',
+        background: '#fff',
+        transition: 'left 0.2s',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+      }} />
+    </button>
+  )
+}
+
 export default function SettingsScreen({ goBack }: Props) {
   const [checkinTime, setCheckinTime] = useState('21:00')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [shabbatMode, setShabbatMode] = useState(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -24,6 +48,7 @@ export default function SettingsScreen({ goBack }: Props) {
       .then(([s, sb]) => {
         setCheckinTime(s.checkinTime)
         setPhoneNumber(s.phoneNumber ?? '')
+        setShabbatMode(s.shabbatMode)
         setSandboxStatus(sb.sandboxStatus)
       })
       .catch(() => setError('שגיאה בטעינת ההגדרות'))
@@ -47,9 +72,10 @@ export default function SettingsScreen({ goBack }: Props) {
     setSaved(false)
     setError('')
     try {
-      const updated = await updateSettings({ checkinTime, phoneNumber })
+      const updated = await updateSettings({ checkinTime, phoneNumber, shabbatMode })
       setCheckinTime(updated.checkinTime)
       setPhoneNumber(updated.phoneNumber ?? '')
+      setShabbatMode(updated.shabbatMode)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch {
@@ -172,6 +198,23 @@ export default function SettingsScreen({ goBack }: Props) {
               <p style={{ fontSize: 11, color: T.charcoalLight, marginTop: 6 }}>
                 פורמט: +972501234567 (הכנס את המספר שלך עם קידומת המדינה)
               </p>
+            </div>
+          </div>
+
+          {/* Shabbat mode */}
+          <div style={{
+            background: T.bgCard, borderRadius: 16,
+            boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
+            marginBottom: 12, overflow: 'hidden',
+          }}>
+            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 14, color: T.charcoal, fontWeight: 500 }}>מצב שבת</p>
+                <p style={{ fontSize: 12, color: T.charcoalLight, marginTop: 2 }}>
+                  {`ללא הודעות מיום שישי 17:00 עד מוצ"ש 21:00`}
+                </p>
+              </div>
+              <Toggle value={shabbatMode} onChange={setShabbatMode} />
             </div>
           </div>
 
