@@ -147,12 +147,14 @@ export interface ApiSettings {
   checkinTime: string
   phoneNumber: string
   timezone: string
+  shabbatMode: boolean
+  saturdayCheckinTime: string | null
 }
 
 export const getSettings = () =>
   req<ApiSettings>('/api/settings')
 
-export const updateSettings = (patch: Partial<Pick<ApiSettings, 'checkinTime' | 'phoneNumber'>>) =>
+export const updateSettings = (patch: Partial<Pick<ApiSettings, 'checkinTime' | 'phoneNumber' | 'shabbatMode' | 'saturdayCheckinTime'>>) =>
   req<ApiSettings>('/api/settings', { method: 'PATCH', body: JSON.stringify(patch) })
 
 export interface ApiQuestion {

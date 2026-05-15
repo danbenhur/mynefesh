@@ -56,6 +56,8 @@ export const userSettings = pgTable('user_settings', {
   checkinTime: text('checkin_time').notNull().default('21:00'),
   phoneNumber: text('phone_number'),
   timezone: text('timezone').notNull().default('Asia/Jerusalem'),
+  shabbatMode: boolean('shabbat_mode').notNull().default(true),
+  saturdayCheckinTime: text('saturday_checkin_time'),
   lastSandboxJoinAt: timestamp('last_sandbox_join_at', { withTimezone: true }),
   sandboxStatus: text('sandbox_status').notNull().default('unknown'),
   lastDeliveryFailureAt: timestamp('last_delivery_failure_at', { withTimezone: true }),

@@ -36,6 +36,7 @@ export default function SettingsScreen({ goBack }: Props) {
   const [checkinTime, setCheckinTime] = useState('21:00')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [shabbatMode, setShabbatMode] = useState(true)
+  const [saturdayCheckinTime, setSaturdayCheckinTime] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -49,6 +50,7 @@ export default function SettingsScreen({ goBack }: Props) {
         setCheckinTime(s.checkinTime)
         setPhoneNumber(s.phoneNumber ?? '')
         setShabbatMode(s.shabbatMode)
+        setSaturdayCheckinTime(s.saturdayCheckinTime ?? '')
         setSandboxStatus(sb.sandboxStatus)
       })
       .catch(() => setError('שגיאה בטעינת ההגדרות'))
@@ -72,10 +74,16 @@ export default function SettingsScreen({ goBack }: Props) {
     setSaved(false)
     setError('')
     try {
-      const updated = await updateSettings({ checkinTime, phoneNumber, shabbatMode })
+      const updated = await updateSettings({
+        checkinTime,
+        phoneNumber,
+        shabbatMode,
+        saturdayCheckinTime: saturdayCheckinTime.trim() || null,
+      })
       setCheckinTime(updated.checkinTime)
       setPhoneNumber(updated.phoneNumber ?? '')
       setShabbatMode(updated.shabbatMode)
+      setSaturdayCheckinTime(updated.saturdayCheckinTime ?? '')
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch {
@@ -211,12 +219,42 @@ export default function SettingsScreen({ goBack }: Props) {
               <div>
                 <p style={{ fontSize: 14, color: T.charcoal, fontWeight: 500 }}>מצב שבת</p>
                 <p style={{ fontSize: 12, color: T.charcoalLight, marginTop: 2 }}>
-                  {`ללא הודעות מיום שישי 17:00 עד מוצ"ש 21:00`}
+                  שעה לפני שקיעת החמה בירושלים ביום שישי עד שעה אחרי צאת שבת
                 </p>
               </div>
               <Toggle value={shabbatMode} onChange={setShabbatMode} />
             </div>
           </div>
+
+          {/* Saturday override — only when Shabbat mode is on */}
+          {shabbatMode && (
+            <div style={{
+              background: T.bgCard, borderRadius: 16,
+              boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
+              marginBottom: 12, overflow: 'hidden',
+            }}>
+              <div style={{ padding: '14px 16px' }}>
+                <p style={{ fontSize: 14, color: T.charcoal, fontWeight: 500, marginBottom: 2 }}>
+                  שעה אלטרנטיבית לשבת
+                </p>
+                <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 10 }}>
+                  אם השעה הרגילה מוקדמת מצאת שבת, הגדר כאן שעה מאוחרת יותר ליום שבת בלבד.
+                  השאר ריק אם לא צריך.
+                </p>
+                <input
+                  type="time"
+                  value={saturdayCheckinTime}
+                  onChange={e => setSaturdayCheckinTime(e.target.value)}
+                  style={{
+                    background: T.sageLight, border: 'none', borderRadius: 10,
+                    padding: '6px 12px', fontSize: 15, fontWeight: 700,
+                    color: T.charcoal, fontFamily: 'inherit', outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* How it works */}
           <div style={{

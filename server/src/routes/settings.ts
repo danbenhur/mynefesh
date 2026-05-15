@@ -21,6 +21,8 @@ router.get('/', async (_req, res) => {
       checkinTime: row.checkinTime,
       phoneNumber: row.phoneNumber ?? '',
       timezone: row.timezone,
+      shabbatMode: row.shabbatMode,
+      saturdayCheckinTime: row.saturdayCheckinTime ?? null,
     })
   } catch (err) {
     console.error('[settings] GET error:', err)
@@ -39,6 +41,12 @@ const patchSchema = z.object({
       message: 'phoneNumber must start with + or whatsapp:+',
     })
     .optional(),
+  shabbatMode: z.boolean().optional(),
+  saturdayCheckinTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'saturdayCheckinTime must be HH:MM')
+    .nullable()
+    .optional(),
 })
 
 router.patch('/', async (req, res) => {
@@ -53,6 +61,8 @@ router.patch('/', async (req, res) => {
     const updates: Partial<typeof row> = { updatedAt: new Date() }
     if (parsed.data.checkinTime !== undefined) updates.checkinTime = parsed.data.checkinTime
     if (parsed.data.phoneNumber !== undefined) updates.phoneNumber = parsed.data.phoneNumber || null
+    if (parsed.data.shabbatMode !== undefined) updates.shabbatMode = parsed.data.shabbatMode
+    if (parsed.data.saturdayCheckinTime !== undefined) updates.saturdayCheckinTime = parsed.data.saturdayCheckinTime
 
     const updated = await getDb()
       .update(userSettings)
@@ -89,6 +99,8 @@ router.patch('/', async (req, res) => {
       checkinTime: updated[0].checkinTime,
       phoneNumber: updated[0].phoneNumber ?? '',
       timezone: updated[0].timezone,
+      shabbatMode: updated[0].shabbatMode,
+      saturdayCheckinTime: updated[0].saturdayCheckinTime ?? null,
     })
   } catch (err) {
     console.error('[settings] PATCH error:', err)

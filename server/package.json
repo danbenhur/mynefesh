@@ -23,6 +23,7 @@
     "@types/passport-github2": "^1.2.9",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/pg": "^8.20.0",
+    "@types/suncalc": "^1.9.2",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.45.2",
@@ -33,6 +34,7 @@
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.20.0",
+    "suncalc": "^1.9.0",
     "twilio": "^6.0.2",
     "typescript": "^5.8.3",
     "zod": "^4.3.6"
