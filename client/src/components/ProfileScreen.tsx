@@ -165,14 +165,9 @@ export default function ProfileScreen({ user, navigate }: Props) {
           </div>
         )}
         <p style={{ fontSize: 20, fontWeight: 700, color: T.charcoal, marginBottom: 4 }}>{displayName}</p>
-        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 8 }}>
-          Kfar Chabad, Israel · Father of 11
-        </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sage }} />
           <span style={{ fontSize: 13, color: T.charcoalMid }}>myNefesh Pro</span>
-          <span style={{ fontSize: 13, color: T.charcoalLight }}>•</span>
-          <span style={{ fontSize: 13, color: T.charcoalLight }}>Member since 2024</span>
         </div>
       </div>
 
