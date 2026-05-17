@@ -396,3 +396,24 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 - Never add hardcoded example data (names, placeholder content) to UI components
 - The `CheckinScreen` component still exists in `client/src/components/` but is not routed — `App.tsx` routes `checkin` → `InterviewScreen`. Don't resurrect CheckinScreen.
 - Before touching the WhatsApp scheduler, test locally with `NODE_ENV=development` and mock Twilio calls
+
+---
+
+## Standing Rule — CLAUDE.md Maintenance
+
+**This rule is mandatory and non-negotiable.**
+
+After every Cowork session, before the task is considered done, Claude MUST:
+
+1. Update the **Current State** section to reflect what's actually live in production right now.
+2. Update the **Active Sprint** section to reflect what's in flight and what's next.
+3. Update the **Stack** section if any dependency, hosting, or service has changed.
+4. Update the **Data Model** section if any schema, migration, table, column, or relationship has changed.
+
+Then commit the updated CLAUDE.md with the message:
+
+```
+docs: update CLAUDE.md
+```
+
+A session is not done until this commit lands. No exceptions.
