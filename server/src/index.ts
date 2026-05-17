@@ -73,7 +73,7 @@ app.use('/auth', authRouter)
 // Twilio webhook — public, form-encoded body, must be before requireAuth
 app.use('/webhook', express.urlencoded({ extended: false }), webhookRouter)
 
-// Temporary public debug endpoint — remove after diagnostics
+// Temporary public debug endpoints — remove after use
 app.use('/api/debug', debugRouter)
 
 // All /api/* routes beyond this point require a valid session
