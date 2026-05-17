@@ -29,99 +29,348 @@ This is not a todo app. It is not a journal. It is an intelligent, proactive lif
 
 Life is organized into **Umbrellas** — areas of Dan's life. Umbrellas are hierarchical (parent → child).
 
-Top-level umbrellas (current):
-- 👨‍👩‍👧‍👦 **People** (relationships — wife, kids, friends, community)
-- 💰 **Money** (income, expenses, investments, projects)
-- 🧒 **Kids** (each child can be a sub-umbrella)
-- 🕍 **Spirituality** (Chassidus, davening, learning, mission)
-- 💪 **Health** (exercise, bloodwork, nutrition, sleep)
+Top-level umbrellas Dan currently uses (configured by him, not hardcoded):
+- 👨‍👩‍👧‍👦 **People** — relationships (wife, kids, friends, community)
+- 💰 **Money** — income, expenses, investments, projects
+- 🧒 **Kids** — each child can be a sub-umbrella
+- 🕍 **Spirituality** — Chassidus, davening, learning, mission
+- 💪 **Health** — exercise, bloodwork, nutrition, sleep
 
-Each umbrella has:
-- A status / health score
-- Associated tasks, reminders, notes
-- History and trend data
-- Sub-umbrellas (recursive)
+Each umbrella has: a computed health score (0–100), interview questions, answer history, child umbrellas, tasks, reminders, archive state.
 
 ---
 
-## Product Behavior
+## Current State — **Live in Production**
 
-### Proactive Intelligence
-MyNefesh does NOT wait to be asked. It pushes:
-- Time-sensitive reminders ("Your wife's birthday is in 4 weeks — let's plan something")
-- Relationship prompts ("Your son had a test — ask him how it went")
-- Action nudges ("City bills are due — should I handle it?")
-- Health triggers ("You haven't done your annual blood test — let's schedule it")
-
-### Daily Interview
-MyNefesh periodically interviews Dan to stay current:
-- Asks structured questions per umbrella
-- Updates its knowledge base from his answers
-- Generates insights and flags gaps
-
-### Dashboard
-- Overview of all umbrellas with health indicators
-- Stats, graphs, trend lines per umbrella
-- Quick-access chat interface
-
-### Chat Interface
-- Dan can initiate any conversation
-- MyNefesh can push prompts when the app is opened
-- Push notifications for time-sensitive items
+The app is fully deployed and functional. Below is what is actually built.
 
 ---
 
-## Data Model (Conceptual)
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + TypeScript + Vite 8 |
+| State | Zustand 5 |
+| Backend | Express 5 + TypeScript |
+| ORM | Drizzle ORM + drizzle-kit (auto-migrations on startup) |
+| Database | Neon PostgreSQL (serverless) |
+| Auth | Passport.js + Google OAuth 2.0 (single allowed email) |
+| AI | Anthropic SDK (`claude-opus-4-5` via SSE streaming) |
+| WhatsApp | Twilio sandbox (WhatsApp) |
+| Scheduler | node-cron (runs every minute on server) |
+| Sunset calc | SunCalc (Jerusalem Shabbat window) |
+| Session store | connect-pg-simple (sessions in Postgres) |
+| Frontend deploy | Vercel |
+| Backend deploy | Render |
+
+No React Native, no Electron, no mobile app — this is a **mobile-first PWA** (max-width 430px, runs in browser on phone).
+
+---
+
+## Architecture
+
+### Principle: Single user, no tenancy
+
+There are no `userId` columns in the schema. The app assumes one authenticated user (Dan). Auth is Google OAuth with a hardcoded email allowlist (`ALLOWED_GOOGLE_EMAIL`).
+
+### Data Model (actual schema)
 
 ```
-Umbrella
-  ├── id, name, icon, parentId
-  ├── healthScore (0–100)
-  ├── notes[]
-  ├── tasks[]
-  ├── reminders[]
-  ├── children: Umbrella[]
-  └── history: HealthSnapshot[]
+umbrellas
+  id (uuid), name, icon, parent_id → umbrellas (self-ref, cascade),
+  health_score (int, legacy — now computed from answers),
+  notes (text[]), position, archived_at, created_at, updated_at
 
-Person (sub-type of Umbrella item)
-  ├── name, relationship, birthday
-  ├── lastContact
-  ├── notes[]
-  └── upcomingEvents[]
+tasks
+  id, umbrella_id → umbrellas (cascade), title,
+  status (todo|in-progress|done), priority (low|medium|high),
+  due_at, position, created_at, updated_at
 
-Task
-  ├── title, umbrellaId
-  ├── dueDate, priority
-  └── status
+reminders
+  id, umbrella_id → umbrellas (cascade), message, trigger_at,
+  is_recurring, created_at
 
-Reminder
-  ├── message, triggerDate
-  ├── umbrellaId
-  └── isRecurring
+health_history
+  id, umbrella_id → umbrellas (cascade), score (int), recorded_at
+
+umbrella_questions
+  id, umbrella_id → umbrellas (cascade), text,
+  cadence (daily|weekly|monthly|annual),
+  day_of_week (0-6), day_of_month (1-31), month_of_year (1-12),
+  answer_type (text|scale|boolean|boolean_partial),
+  scale_min, scale_max, position, enabled, created_at, updated_at
+
+question_answers
+  id, question_id → umbrella_questions (cascade),
+  interview_date (date), answer_text, answer_scale (int),
+  answer_boolean (yes|no|partial), answer_normalized (0.0–1.0),
+  created_at
+  — UPSERTED per (question_id, interview_date)
+
+interview_session
+  id, date (date, unique), started_at, completed_at, current_index
+
+chat_messages
+  id, role (user|assistant), content, created_at
+
+user_settings          ← singleton row
+  id, checkin_time (HH:MM, default 21:00), phone_number,
+  timezone (default Asia/Jerusalem), shabbat_mode (bool),
+  saturday_checkin_time, last_sandbox_join_at, sandbox_status,
+  last_delivery_failure_at, last_60h_reminder_at, created_at, updated_at
+
+whatsapp_session       ← one row per calendar date
+  id, date (date, unique),
+  state (pending|snoozed|completed|final_sent),
+  snooze_count, last_message_at, next_send_at
+
+user_sessions          ← managed by connect-pg-simple
+```
+
+**Key schema facts:**
+- Health score is **computed**, not stored: `AVG(answer_normalized) * 100` over last 14 days from `question_answers`.
+- `health_history` and `umbrellas.health_score` are legacy fields — analytics route computes the real score.
+- Deleting an umbrella cascades to all children, tasks, reminders, questions, and answers.
+- Interview answers are upserted: re-answering the same question on the same day overwrites, not appends.
+
+---
+
+## Server — Routes & Modules
+
+### Auth (`/auth`)
+- `GET /google` — Redirect to Google OAuth
+- `GET /google/callback` — Validate email, save session, redirect to frontend
+- `GET /me` — Returns `{ authenticated: true, user: {...} }` or `{ authenticated: false }`
+- `POST /logout` — Destroy session
+
+### Umbrellas (`/api/umbrellas`)
+- `GET /` — Flat list of non-archived umbrellas; `?include=archived` includes archived ones
+- `POST /` — Create umbrella (name, icon, parentId)
+- `PATCH /:id` — Update name/icon/position/archivedAt
+- `DELETE /:id` — Hard delete (all descendants + data cascade)
+
+### Tasks (`/api/tasks`)
+- `GET /` — All tasks; `?umbrella=:id` to filter
+- `POST /` — Create task
+- `PATCH /:id` — Update status / priority / dueAt / position
+- `DELETE /:id` — Hard delete
+
+### Interview (`/api/interview`)
+- `GET /today` — Compose today's questions by cadence (respects Jerusalem date) + load/create session. Returns `{ questions: ApiComposedQuestion[], session: ApiInterviewSession }`.
+- `POST /answer` — Submit one answer; normalizes to 0.0–1.0; upserts into `question_answers`
+- `POST /complete` — Set `completed_at` on today's session
+- `GET /history` — `?days=30`; past sessions + answers
+
+### Questions (`/api/umbrellas/:id/questions`, `/api/questions`)
+- `GET /:umbrellaId/questions` — List questions for an umbrella
+- `POST /:umbrellaId/questions` — Create question
+- `PATCH /questions/:id` — Update question (text, cadence, answer type, etc.)
+- `DELETE /questions/:id` — Delete question + cascade answers
+
+### Analytics (`/api/analytics`)
+- `GET /umbrellas/health` — `?days=14`; bulk `{ umbrellaId: score | null }` map for all umbrellas
+- `GET /umbrellas/:id/trend` — `?days=42`; `[{ date, score }]` daily averages
+- `GET /questions/:id/trend` — `?days=90`; `[{ date, value, answerText, answerScale, answerBoolean }]`
+
+### Chat (`/api/chat`)
+- `GET /history` — `?limit=50`; recent messages from `chat_messages`
+- `POST /history` — Append one message (used internally)
+- `POST /` — Stream Claude response via SSE; system prompt includes full umbrella context (names, scores, recent answers)
+
+### Settings (`/api/settings`)
+- `GET /` — Returns current user settings
+- `PATCH /` — Update any field; resets today's WhatsApp session state when `checkinTime` changes
+
+### WhatsApp / Sandbox (`/api/sandbox`, `/api/whatsapp`, `/webhook`)
+- `GET /sandbox/status` — `{ sandboxStatus, lastSandboxJoinAt, lastDeliveryFailureAt }`
+- `POST /sandbox/joined` — Mark re-joined → sets status to `active`
+- `POST /whatsapp/reset-today` — Force-reset today's WhatsApp session to `pending`
+- `POST /webhook/whatsapp` — Inbound Twilio message handler (Hebrew "בוצע" = done, else = snooze)
+- `POST /webhook/whatsapp-status` — Delivery failure callback; sets `sandbox_status` to `expired`
+
+### Health History (`/api/health-history`)
+- `GET /` — `?umbrella=:id&days=30`
+- `POST /` — Record a manual health snapshot
+
+---
+
+## Server — Lib Modules
+
+### `lib/analytics.ts`
+Computes health scores and trends from `question_answers`:
+- `computeUmbrellaHealthScore(umbrellaId, days=14)` → 0–100 or null
+- `getAllUmbrellaHealthScores(days=14)` → `{ [umbrellaId]: score | null }`
+- `getUmbrellaDailyTrend(umbrellaId, days=42)` → `[{ date, score }]`
+- `getQuestionDailyTrend(questionId, days=90)` → full answer detail per day
+
+### `lib/interview-composer.ts`
+Filters enabled questions by calendar cadence against today's Jerusalem date:
+- `daily` → always included
+- `weekly` → included when `day_of_week` matches today's weekday (0=Sunday)
+- `monthly` → included when `day_of_month` matches today's date
+- `annual` → included when both `day_of_month` and `month_of_year` match
+
+Returns questions with umbrella name and icon attached.
+
+### `lib/scheduler.ts`
+Cron runs every minute. Three tick functions:
+- `tickCheckin()` — Sends WhatsApp check-in at configured time; skips during Shabbat window (Friday sunset−1h → Saturday sunset+1h, via SunCalc); uses `saturday_checkin_time` if set
+- `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed
+- `tickSandboxReminder()` — Sends once-per-day reminder ~60h before sandbox expiry
+
+### `lib/whatsapp.ts`
+Thin wrapper: `sendWhatsApp(to, text)` → `twilio.messages.create()`.
+
+### `lib/whatsapp-messages.ts`
+Hebrew message templates: check-in prompt, snooze followup, final message, morning skip recovery, thanks, sandbox renewal reminder.
+
+### `lib/auth.ts`
+Passport Google OAuth strategy. Email validated against `ALLOWED_GOOGLE_EMAIL`. Session explicitly saved before redirect to prevent race condition on Render.
+
+---
+
+## Client — Screens
+
+### HomeScreen
+Dashboard. Shows: Life Wellness Score ring (computed from umbrella scores), umbrella grid (2-col, each with score + sparkline), AI nudges empty state (real nudges not yet built), "Add umbrella" button, archived count link, sandbox expiry banner.
+
+### UmbrellaDetail
+Full umbrella view. Shows: 6-week trend sparkline (from analytics), sub-areas list (real child umbrellas only — no mock data), questions editor (add/edit/delete with cadence + answer type), per-question trend charts, archive/delete controls.
+
+### InterviewScreen
+Daily interview. Loads real questions from `/api/interview/today`. Progress bar, umbrella badge, multiple answer types (text, scale, boolean, boolean_partial). Resumes from `currentIndex` if interrupted. Completion screen in Hebrew.
+
+### ChatScreen
+AI chat. Loads history from DB; streams live responses via SSE. Empty state when no history. Claude system prompt includes current umbrella scores and recent answers.
+
+### ProfileScreen
+Settings overview. Shows: avatar, display name, umbrella health rings. Notification toggles (morning brief and AI nudges are UI-only, not yet wired). Shabbat mode persisted to DB. Personality/language chips are UI-only. Logout button.
+
+### SettingsScreen
+WhatsApp configuration. Time picker, phone number input, Shabbat mode toggle, Saturday override time picker. All persisted to `user_settings`. Shows sandbox status banner.
+
+### ArchivedScreen
+Lists archived umbrellas with archive date. Restore button per item (sets `archived_at` to null).
+
+### BottomNav
+Five tabs: Home, Umbrellas (→ HomeScreen), Chat (center accent), Check-in (→ InterviewScreen), Profile.
+
+---
+
+## Client — Key Patterns
+
+### State (Zustand store `useStore`)
+Holds the umbrella tree (flat list + `findUmbrella` helper). Loads umbrella list + bulk analytics health scores on auth. Computed fields (`computedHealthScore`, `computedTrend`) attached to each umbrella after fetch.
+
+### API layer (`lib/api.ts`)
+All server calls go through typed functions in `api.ts`. Base URL from `VITE_API_BASE_URL` env var (defaults to `http://localhost:3001`). All requests use `credentials: 'include'` for session cookies.
+
+### Chat streaming (`hooks/useChat.ts`)
+Uses `fetch` with SSE via `ReadableStream`. Accumulates streamed tokens into the last message. `isStreaming` flag controls UI state.
+
+### Theme (`lib/theme.ts`)
+Central token object `T` with color palette (sage, amber, blue, charcoal, red, purple + light variants). `umbrellaColor(name)` deterministically picks a color from the palette based on umbrella name.
+
+---
+
+## Deployment
+
+### Frontend — Vercel
+- Root directory: `client/`
+- Build: `tsc -b && vite build`
+- Output: `dist/`
+- Env var: `VITE_API_BASE_URL=https://mynefesh-api.onrender.com`
+
+### Backend — Render
+- Root directory: `server/`
+- Build: `npm install && npm run build`
+- Start: `npm start`
+- Migrations auto-run on startup via Drizzle
+
+### Database — Neon
+- Serverless PostgreSQL
+- Connection via `DATABASE_URL` env var
+- Sessions stored in `user_sessions` table (connect-pg-simple)
+
+### Required environment variables (server)
+```
+DATABASE_URL               # Neon connection string
+SESSION_SECRET             # Random secret for session signing
+GOOGLE_CLIENT_ID           # Google OAuth client ID
+GOOGLE_CLIENT_SECRET       # Google OAuth client secret
+GOOGLE_CALLBACK_URL        # https://mynefesh-api.onrender.com/auth/google/callback
+ALLOWED_GOOGLE_EMAIL       # Dan's Gmail address
+FRONTEND_URL               # https://mynefesh.vercel.app (for OAuth redirect)
+ALLOWED_ORIGIN             # https://mynefesh.vercel.app (CORS)
+ANTHROPIC_API_KEY          # Claude API key
+TWILIO_ACCOUNT_SID         # Twilio account SID
+TWILIO_AUTH_TOKEN          # Twilio auth token
+TWILIO_WHATSAPP_FROM       # whatsapp:+14155238886 (sandbox number)
+USER_WHATSAPP_NUMBER       # whatsapp:+972XXXXXXXXX (Dan's number)
+PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 ```
 
 ---
 
-## Stack (TBD — to be decided with Dan)
+## What's Built and Live
 
-Stack is not yet locked. When deciding, prefer:
-- React + TypeScript (Dan's expertise)
-- Mobile-first (Dan uses phone heavily)
-- Local-first storage where possible (Dan wants data on his PC)
-- AI integration via Anthropic API (Claude as the intelligence layer)
-- Simple, fast, no unnecessary complexity
-
-Do NOT introduce new tech without discussing with Dan first.
+- **Google OAuth auth** — Login, session, single-user email validation
+- **Umbrella CRUD** — Create, rename, archive, delete (cascade), restore archived
+- **Child umbrellas** — Full hierarchy support; sub-areas shown in UmbrellaDetail
+- **Interview system** — Cadence-based questions, all answer types, session tracking, Jerusalem-aware date
+- **Answer normalization** — All answer types map to 0.0–1.0 for analytics
+- **Computed health scores** — AVG of recent normalized answers (14-day window)
+- **Analytics trends** — 42-day per-umbrella, 90-day per-question
+- **AI Chat** — Streaming Claude responses with live umbrella context in system prompt
+- **WhatsApp scheduler** — Cron-based, Hebrew messages, snooze/done flow via inbound webhook
+- **Shabbat mode** — Real Jerusalem sunset window (SunCalc), skips Fri eve → Sat eve
+- **Saturday override** — Optional separate check-in time on Saturdays
+- **Sandbox management** — Expiry detection via delivery failure webhook, 60h reminder, renewal flow
+- **Settings screen** — All WhatsApp settings persisted to DB
+- **Tasks** — Create, status toggle, priority, delete per umbrella
+- **Archived umbrellas** — Archive, browse, restore flow
 
 ---
 
-## Architecture Principles
+## What's Partially Done / In-Flight
 
-1. **Local-first** — Dan's data stays on his machine. No cloud dependency unless explicitly chosen.
-2. **AI-native** — Claude is the brain. Not a bolt-on feature.
-3. **Single user** — no auth complexity, no multi-tenancy.
-4. **Proactive > reactive** — the system should push, not wait.
-5. **Simplicity over cleverness** — readable code, minimal abstractions.
+- **AI Nudges** — Home screen has the UI slot (empty state card) but no generation logic. Nudges need to be generated by Claude based on answer patterns, overdue interviews, relationship gaps, etc.
+- **Personality / Language settings** — ProfileScreen has UI chips (`warm | direct | spiritual`, `EN | HE`) but these are not persisted or passed to Claude's system prompt yet.
+- **Morning brief toggle** — ProfileScreen toggle exists but not wired to scheduler behavior.
+- **AI nudges toggle** — Same: UI-only, not wired.
+
+---
+
+## What's Planned Next
+
+- **Real AI nudges** — Claude analyzes answer history + umbrella gaps → generates 2-3 contextual nudges on HomeScreen
+- **Claude tool use in chat** — Allow Claude to create tasks, update reminders, schedule interview questions via function calling during chat
+- **Resolutions / goals tracking** — Long-horizon targets per umbrella, progress over time
+- **Push notifications** — Browser push or WhatsApp for time-sensitive nudges (currently only scheduled check-in)
+- **Voice input** — Mic button in chat (currently shows icon but no recording logic)
+- **Per-umbrella AI summary** — Claude-generated health narrative in UmbrellaDetail
+- **Data export** — Export umbrella history, answers, trends as CSV or PDF
+
+---
+
+## Known Caveats & Gotchas
+
+1. **Twilio WhatsApp sandbox expires every 72 hours.** Dan must re-join by texting the sandbox join phrase. The system detects expiry via Twilio delivery failure webhooks and shows a banner + sends a 60h reminder message. After re-joining, tap "I've re-joined ✓" in Settings.
+
+2. **Session storage is Postgres-backed.** `connect-pg-simple` + `user_sessions` table. If `DATABASE_URL` is absent in dev, an in-memory store is used (sessions lost on restart).
+
+3. **Health scores are null until first interview is completed.** An umbrella with no answered questions shows `—` in the UI, not 0. This is correct behavior.
+
+4. **Cascade deletes are permanent.** Deleting an umbrella removes all questions, answers, tasks, reminders, and children. Archive instead of delete if in doubt.
+
+5. **Jerusalem timezone throughout.** The scheduler, interview composer, and Shabbat logic all use `Asia/Jerusalem`. The `interview_date` column is a calendar date in that zone.
+
+6. **Render cold starts.** Render's free tier spins down after inactivity. First request after sleep takes ~30s. Scheduler won't fire during sleep.
+
+7. **No `userId` in schema.** The entire database is single-user. Do not add multi-tenancy without a full schema migration plan.
+
+8. **`health_score` column on `umbrellas` table is legacy.** The UI uses `computedHealthScore` from the analytics route, not `umbrella.health_score`. Don't write to `health_score` for anything new.
 
 ---
 
@@ -134,24 +383,7 @@ Do NOT introduce new tech without discussing with Dan first.
 - No unnecessary libraries — justify every dependency
 - Comments in English
 - When stuck, explain the problem clearly and offer 2–3 options with tradeoffs
-
----
-
-## Current State
-
-🔴 **Not started** — project folder does not exist yet.
-
-Next step: scaffold the project, decide stack, build the first screen (Dashboard with Umbrellas overview).
-
----
-
-## Active Sprint
-
-- [ ] Decide stack (React Native vs web app vs Electron)
-- [ ] Scaffold project
-- [ ] Build Umbrella data model
-- [ ] Build Dashboard screen (umbrella cards with health scores)
-- [ ] Build basic Chat interface
+- No hardcoded mock/prototype data in the UI — if data isn't real, show an empty state
 
 ---
 
@@ -161,3 +393,6 @@ Next step: scaffold the project, decide stack, build the first screen (Dashboard
 - This is a deeply personal product — treat it with care
 - When adding features, ask: "does this make Dan's life simpler or more complex?"
 - The north star: Dan opens MyNefesh and immediately feels clarity and calm
+- Never add hardcoded example data (names, placeholder content) to UI components
+- The `CheckinScreen` component still exists in `client/src/components/` but is not routed — `App.tsx` routes `checkin` → `InterviewScreen`. Don't resurrect CheckinScreen.
+- Before touching the WhatsApp scheduler, test locally with `NODE_ENV=development` and mock Twilio calls
