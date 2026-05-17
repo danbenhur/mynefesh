@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+:root { color-scheme: light only; }
+html, body { background: #F5F1E8; }
+
 body {
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   background-color: #F5F1E8;
