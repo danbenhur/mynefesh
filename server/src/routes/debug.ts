@@ -1,11 +1,7 @@
 import { Router } from 'express'
-import { desc, eq, isNotNull } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import {
-  whatsappSession, userSettings,
-  umbrellas, tasks, reminders, healthHistory,
-  umbrellaQuestions, questionAnswers, interviewSession,
-} from '../db/schema.js'
+import { whatsappSession, userSettings } from '../db/schema.js'
 
 const router = Router()
 
@@ -110,33 +106,6 @@ router.post('/reset-today-public', async (_req, res) => {
     }
 
     res.json({ ok: true, today, before, after })
-  } catch (err) {
-    res.status(500).json({ error: String(err) })
-  }
-})
-
-// Public — one-time wipe of all umbrella data for clean-slate re-seeding.
-// REMOVE THIS ENDPOINT after use.
-router.post('/wipe-all-umbrellas-public', async (_req, res) => {
-  try {
-    const db = getDb()
-    const answers    = await db.delete(questionAnswers).returning({ id: questionAnswers.id })
-    const questions  = await db.delete(umbrellaQuestions).returning({ id: umbrellaQuestions.id })
-    const delTasks   = await db.delete(tasks).returning({ id: tasks.id })
-    const delRem     = await db.delete(reminders).returning({ id: reminders.id })
-    const history    = await db.delete(healthHistory).returning({ id: healthHistory.id })
-    const sessions   = await db.delete(interviewSession).returning({ id: interviewSession.id })
-    const children   = await db.delete(umbrellas).where(isNotNull(umbrellas.parentId)).returning({ id: umbrellas.id })
-    const roots      = await db.delete(umbrellas).returning({ id: umbrellas.id })
-    res.json({
-      ok: true,
-      deleted: {
-        answers: answers.length, questions: questions.length,
-        tasks: delTasks.length, reminders: delRem.length,
-        history: history.length, sessions: sessions.length,
-        umbrellas: children.length + roots.length,
-      },
-    })
   } catch (err) {
     res.status(500).json({ error: String(err) })
   }
