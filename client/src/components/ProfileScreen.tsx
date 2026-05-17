@@ -179,15 +179,19 @@ export default function ProfileScreen({ user, navigate }: Props) {
         }}>
           {umbrellas.map(u => {
             const color = umbrellaColor(u.name)
+            const hasScore = u.computedHealthScore !== null
+            const ringColor = hasScore ? color : T.charcoalLight
             return (
               <div key={u.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <div style={{ position: 'relative', width: 36, height: 36 }}>
-                  <Ring score={u.healthScore} size={36} stroke={3} color={color} animate={false} />
+                  <Ring score={u.computedHealthScore ?? 0} size={36} stroke={3} color={ringColor} animate={false} />
                   <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color }}>{u.healthScore}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: ringColor }}>
+                      {u.computedHealthScore ?? '—'}
+                    </span>
                   </div>
                 </div>
                 <span style={{

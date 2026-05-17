@@ -57,10 +57,10 @@ function lastActivity(u: Umbrella): string {
 }
 
 function childSparkData(u: Umbrella): number[] {
-  const sorted = [...u.history]
+  if (u.computedTrend && u.computedTrend.length > 0) return u.computedTrend
+  return [...u.history]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(h => h.score)
-  return sorted.length >= 2 ? sorted : [u.healthScore]
 }
 
 interface FormState {
@@ -478,17 +478,23 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                 {umbrella.name}
               </h1>
               <p style={{ fontSize: 12, color: T.charcoalLight }}>
-                Health score: <span style={{ color, fontWeight: 700 }}>{umbrella.healthScore}</span>/100
+                Health score:{' '}
+                <span style={{ color, fontWeight: 700 }}>
+                  {umbrella.computedHealthScore ?? '—'}
+                </span>
+                {umbrella.computedHealthScore !== null && '/100'}
               </p>
             </div>
           </div>
           <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
-            <Ring score={umbrella.healthScore} size={56} stroke={5} color={color} animate={false} />
+            <Ring score={umbrella.computedHealthScore ?? 0} size={56} stroke={5} color={color} animate={false} />
             <div style={{
               position: 'absolute', inset: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color }}>{umbrella.healthScore}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color }}>
+                {umbrella.computedHealthScore ?? '—'}
+              </span>
             </div>
           </div>
         </div>
@@ -535,9 +541,11 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                         </p>
                         <p style={{ fontSize: 11, color: T.charcoalLight }}>Last: {lastActivity(child)}</p>
                       </div>
-                      <Sparkline data={sparkData} color={childColor} width={50} height={20} />
-                      <span style={{ fontSize: 18, fontWeight: 700, color: childColor, flexShrink: 0 }}>
-                        {child.healthScore}
+                      {sparkData.length > 0 && (
+                        <Sparkline data={sparkData} color={childColor} width={50} height={20} />
+                      )}
+                      <span style={{ fontSize: 18, fontWeight: 700, color: child.computedHealthScore !== null ? childColor : T.charcoalLight, flexShrink: 0 }}>
+                        {child.computedHealthScore ?? '—'}
                       </span>
                     </div>
 

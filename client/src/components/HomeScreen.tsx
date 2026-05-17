@@ -221,7 +221,9 @@ export default function HomeScreen({ navigate }: Props) {
               <span style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1 }}>
                 {umbrellas.length && hasComputedData ? overallScore : '—'}
               </span>
-              <span style={{ fontSize: 10, color: T.charcoalLight }}>/100</span>
+              {!!(umbrellas.length && hasComputedData) && (
+                <span style={{ fontSize: 10, color: T.charcoalLight }}>/100</span>
+              )}
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
