@@ -340,10 +340,6 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const color = umbrellaColor(umbrella.name)
   const { loadUmbrellas } = useStore()
 
-  const trendData = [...umbrella.history]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map(h => h.score)
-
   // Questions state
   const [questions, setQuestions] = useState<Question[]>([])
   const [loadingQ, setLoadingQ] = useState(true)
@@ -579,8 +575,8 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
         )}
 
         {umbrella.children.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: T.charcoalLight, fontSize: 13 }}>
-            No sub-areas yet.
+          <div style={{ textAlign: 'center', padding: '24px 0', color: T.charcoalLight, fontSize: 13 }}>
+            אין תתי-מטרות עדיין.
           </div>
         )}
 

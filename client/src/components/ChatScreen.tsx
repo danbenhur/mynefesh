@@ -5,13 +5,6 @@ import { T } from '../lib/theme'
 import Icon from './Icon'
 import type { Message } from '../types/chat'
 
-const OPENING_MESSAGE: Message = {
-  id: 'opening',
-  role: 'assistant',
-  content: "Hey Dan 👋 I'm Nefesh — your AI life secretary. Tell me what's on your mind, or ask about any area of your life.",
-  timestamp: new Date(),
-}
-
 function formatTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
 }
@@ -59,20 +52,15 @@ export default function ChatScreen() {
   useEffect(() => {
     getChatHistory(50)
       .then(rows => {
-        if (rows.length === 0) {
-          setDbMessages([OPENING_MESSAGE])
-        } else {
-          setDbMessages(rows.map(r => ({
-            id: r.id,
-            role: r.role as 'user' | 'assistant',
-            content: r.content,
-            timestamp: new Date(r.timestamp),
-          })))
-        }
+        setDbMessages(rows.map(r => ({
+          id: r.id,
+          role: r.role as 'user' | 'assistant',
+          content: r.content,
+          timestamp: new Date(r.timestamp),
+        })))
         setHistoryLoaded(true)
       })
       .catch(() => {
-        setDbMessages([OPENING_MESSAGE])
         setHistoryLoaded(true)
       })
   }, [])
@@ -124,6 +112,15 @@ export default function ChatScreen() {
               borderTopColor: 'transparent', borderRadius: '50%',
               animation: 'spin 0.8s linear infinite',
             }} />
+          </div>
+        )}
+
+        {historyLoaded && allMessages.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', textAlign: 'center' }}>
+            <p style={{ fontSize: 40, marginBottom: 12 }}>🌿</p>
+            <p style={{ fontSize: 14, color: T.charcoalLight, lineHeight: 1.6 }}>
+              Ask Nefesh anything about your life.
+            </p>
           </div>
         )}
 

@@ -8,30 +8,6 @@ import { getSandboxStatus, markSandboxJoined, listArchivedUmbrellas } from '../l
 import type { NavigateFn } from '../types/nav'
 import type { Umbrella } from '../types/umbrella'
 
-const NUDGES = [
-  {
-    bg: T.amberLight,
-    accent: T.amber,
-    emoji: '🎂',
-    title: "Sarah's birthday",
-    body: 'Coming up in 3 weeks. Time to plan something special.',
-  },
-  {
-    bg: T.blueLight,
-    accent: T.blue,
-    emoji: '💰',
-    title: 'Financial review overdue',
-    body: "You haven't reviewed your expenses this month.",
-  },
-  {
-    bg: T.sageLight,
-    accent: T.sage,
-    emoji: '✨',
-    title: 'Shabbat prep',
-    body: 'Friday starts at 7:22pm. A few things to prepare.',
-  },
-]
-
 const ICON_PICKS = ['🏠', '👨‍👩‍👧‍👦', '💰', '🧒', '✨', '💪', '📚', '🎵', '🌍', '❤️', '🕍', '💼']
 
 function greeting() {
@@ -265,33 +241,19 @@ export default function HomeScreen({ navigate }: Props) {
         </div>
       </div>
 
-      {/* AI Nudges */}
+      {/* AI Nudges — empty state until real data is available */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <Icon name="sparkle" size={16} color={T.amber} />
           <span style={{ fontSize: 15, fontWeight: 600, color: T.charcoal }}>Nefesh suggests</span>
-          <span style={{ fontSize: 12, color: T.charcoalLight, marginLeft: 2 }}>3 nudges</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {NUDGES.map((nudge, i) => (
-            <button
-              key={nudge.title}
-              onClick={() => navigate('chat')}
-              style={{
-                background: nudge.bg, borderRadius: 16, padding: '14px 16px',
-                border: 'none', cursor: 'pointer', textAlign: 'left',
-                display: 'flex', alignItems: 'flex-start', gap: 12, fontFamily: 'inherit',
-                animation: `nudge-float 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 80}ms both`,
-              }}
-            >
-              <span style={{ fontSize: 22, flexShrink: 0 }}>{nudge.emoji}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 2 }}>{nudge.title}</p>
-                <p style={{ fontSize: 12, color: T.charcoalMid, lineHeight: 1.5 }}>{nudge.body}</p>
-              </div>
-              <Icon name="chevron" size={16} color={nudge.accent} />
-            </button>
-          ))}
+        <div style={{
+          background: T.sageLight, borderRadius: 16, padding: '16px 18px',
+          border: `1px dashed ${T.sageMid}`,
+        }}>
+          <p style={{ fontSize: 13, color: T.charcoalLight, lineHeight: 1.6, textAlign: 'center' }}>
+            Nefesh suggestions will appear here as data accumulates.
+          </p>
         </div>
       </div>
 

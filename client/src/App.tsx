@@ -4,7 +4,6 @@ import BottomNav, { type NavScreen } from './components/BottomNav'
 import HomeScreen from './components/HomeScreen'
 import UmbrellaDetail from './components/UmbrellaDetail'
 import ChatScreen from './components/ChatScreen'
-import CheckinScreen from './components/CheckinScreen'
 import ProfileScreen from './components/ProfileScreen'
 import SettingsScreen from './components/SettingsScreen'
 import InterviewScreen from './components/InterviewScreen'
@@ -187,7 +186,7 @@ export default function App() {
 
         {current.screen === 'chat' && <ChatScreen />}
 
-        {current.screen === 'checkin' && <CheckinScreen navigate={navigate} />}
+        {current.screen === 'checkin' && <InterviewScreen navigate={navigate} />}
 
         {current.screen === 'profile' && <ProfileScreen user={auth.user} navigate={navigate} />}
 
