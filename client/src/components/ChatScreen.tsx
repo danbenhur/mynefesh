@@ -87,7 +87,7 @@ export default function ChatScreen() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
+    <div dir="rtl" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: T.bg }}>
       {/* Header */}
       <div style={{
         padding: '52px 20px 16px',
@@ -99,12 +99,12 @@ export default function ChatScreen() {
         <SparkleAvatar size={40} />
         <div>
           <p style={{ fontSize: 16, fontWeight: 700, color: T.charcoal, lineHeight: 1 }}>Nefesh</p>
-          <p style={{ fontSize: 11, color: T.sage, fontWeight: 500, marginTop: 3 }}>● Always here</p>
+          <p style={{ fontSize: 11, color: T.sage, fontWeight: 500, marginTop: 3 }}>● תמיד כאן</p>
         </div>
       </div>
 
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 0' }}>
+      {/* Messages — dir=ltr keeps user-right / assistant-left layout */}
+      <div dir="ltr" style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 0' }}>
         {!historyLoaded && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
             <div style={{
@@ -119,7 +119,7 @@ export default function ChatScreen() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', textAlign: 'center' }}>
             <p style={{ fontSize: 40, marginBottom: 12 }}>🌿</p>
             <p style={{ fontSize: 14, color: T.charcoalLight, lineHeight: 1.6 }}>
-              Ask Nefesh anything about your life.
+              שאל את Nefesh כל דבר על חייך.
             </p>
           </div>
         )}
@@ -178,8 +178,8 @@ export default function ChatScreen() {
         <div ref={bottomRef} style={{ height: 16 }} />
       </div>
 
-      {/* Input row */}
-      <div style={{
+      {/* Input row — dir=ltr keeps send button on right */}
+      <div dir="ltr" style={{
         flexShrink: 0,
         borderTop: `1px solid rgba(44,44,42,0.08)`,
         padding: '10px 16px 86px',
@@ -196,7 +196,8 @@ export default function ChatScreen() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message Nefesh…"
+            placeholder="הודעה ל-Nefesh…"
+            dir="rtl"
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
               fontSize: 14, color: T.charcoal, fontFamily: 'inherit',

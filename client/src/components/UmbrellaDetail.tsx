@@ -43,11 +43,11 @@ function cadenceLabel(q: Question): string {
 
 function relativeDate(dateStr: string): string {
   const diffDays = Math.round((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffDays < 30) return `${Math.round(diffDays / 7)}w ago`
-  return `${Math.round(diffDays / 30)}mo ago`
+  if (diffDays === 0) return 'היום'
+  if (diffDays === 1) return 'אתמול'
+  if (diffDays < 7) return `לפני ${diffDays} ימים`
+  if (diffDays < 30) return `לפני ${Math.round(diffDays / 7)} שבועות`
+  return `לפני ${Math.round(diffDays / 30)} חודשים`
 }
 
 function lastActivity(u: Umbrella): string {
@@ -448,7 +448,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   }
 
   return (
-    <div style={{ minHeight: '100%', background: T.bg, paddingBottom: 100 }}>
+    <div dir="rtl" style={{ minHeight: '100%', background: T.bg, paddingBottom: 100 }}>
       {/* Header */}
       <div style={{ padding: '60px 20px 20px', background: T.bgCard, boxShadow: '0 1px 0 rgba(44,44,42,0.06)' }}>
         <button
@@ -460,8 +460,10 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
             fontFamily: 'inherit',
           }}
         >
-          <Icon name="back" size={16} color={T.charcoalLight} />
-          Back
+          <span style={{ transform: 'scaleX(-1)', display: 'inline-flex' }}>
+            <Icon name="back" size={16} color={T.charcoalLight} />
+          </span>
+          חזור
         </button>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
@@ -478,7 +480,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                 {umbrella.name}
               </h1>
               <p style={{ fontSize: 12, color: T.charcoalLight }}>
-                Health score:{' '}
+                ציון בריאות:{' '}
                 <span style={{ color, fontWeight: 700 }}>
                   {umbrella.computedHealthScore ?? '—'}
                 </span>
@@ -506,11 +508,11 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
           background: T.bgCard, borderRadius: 16, padding: '14px 16px',
           marginBottom: 16, boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
         }}>
-          <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 10 }}>6-week trend</p>
+          <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 10 }}>מגמה ב-6 שבועות</p>
           {umbrellaTrend.length > 0
             ? <Sparkline data={umbrellaTrend.map(p => p.score)} color={color} width={280} height={36} />
             : <p style={{ fontSize: 12, color: T.charcoalLight, fontStyle: 'italic' }}>
-                No data yet — answer your daily interview to build a trend.
+                אין נתונים עדיין — ענה על הראיון היומי לבנות מגמה.
               </p>
           }
         </div>
@@ -518,7 +520,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
         {/* Sub-areas */}
         {umbrella.children.length > 0 && (
           <>
-            <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>Sub-areas</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>תתי-מטריות</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {umbrella.children.map(child => {
                 const childColor = umbrellaColor(child.name)
@@ -539,7 +541,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                         <p style={{ fontSize: 14, fontWeight: 700, color: T.charcoal, marginBottom: 1 }}>
                           {child.name}
                         </p>
-                        <p style={{ fontSize: 11, color: T.charcoalLight }}>Last: {lastActivity(child)}</p>
+                        <p style={{ fontSize: 11, color: T.charcoalLight }}>פעילות: {lastActivity(child)}</p>
                       </div>
                       {sparkData.length > 0 && (
                         <Sparkline data={sparkData} color={childColor} width={50} height={20} />
@@ -571,7 +573,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                             fontFamily: 'inherit', flexShrink: 0, padding: '0 0 0 8px',
                           }}
                         >
-                          Ask Nefesh →
+                          שאל את Nefesh ←
                         </button>
                       </div>
                     )}

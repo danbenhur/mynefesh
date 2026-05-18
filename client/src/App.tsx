@@ -117,33 +117,34 @@ export default function App() {
         <p style={{ fontSize: 56, marginBottom: 24 }}>🌿</p>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: T.charcoal, marginBottom: 8 }}>myNefesh</h1>
         <p style={{ fontSize: 14, color: T.charcoalLight, marginBottom: 48 }}>
-          Your personal AI life secretary
+          המזכיר האישי שלך
         </p>
         {authError && (
           <div style={{
             background: '#fff3cd', border: '1px solid #ffc107',
             borderRadius: 12, padding: '12px 16px', marginBottom: 24,
-            fontSize: 12, color: '#664d03', maxWidth: 320, textAlign: 'left',
+            fontSize: 12, color: '#664d03', maxWidth: 320,
           }}>
             {authError === 'email-mismatch' && (<>
-              <strong>Login blocked — email mismatch</strong><br />
-              Google returned: <code>{gotEmail}</code><br />
-              Server expected: <code>{expectedEmail}</code>
+              <strong>כניסה נחסמה — כתובת מייל שגויה</strong><br />
+              גוגל החזיר: <code>{gotEmail}</code><br />
+              השרת ציפה ל: <code>{expectedEmail}</code>
             </>)}
             {authError === 'login-failed' && (<>
-              <strong>Login failed (req.login error)</strong><br />
+              <strong>כניסה נכשלה (שגיאת req.login)</strong><br />
               <code>{params.get('detail')}</code>
             </>)}
             {authError === 'session-save-failed' && (<>
-              <strong>Session save failed</strong><br />
+              <strong>שמירת הסשן נכשלה</strong><br />
               <code>{params.get('detail')}</code>
             </>)}
             {!['email-mismatch','login-failed','session-save-failed'].includes(authError) && (<>
-              <strong>Auth error: {authError}</strong>
+              <strong>שגיאת הזדהות: {authError}</strong>
             </>)}
           </div>
         )}
         <button
+          dir="ltr"
           onClick={() => { window.location.href = `${API_BASE}/auth/google` }}
           style={{
             display: 'flex', alignItems: 'center', gap: 12,
@@ -160,7 +161,7 @@ export default function App() {
             <path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-2.9-.8-4.6s.3-3.2.8-4.6v-6.2H2.5C.9 16.6 0 20.2 0 24s.9 7.4 2.5 10.8l8-6.2z"/>
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.7 1.2 9.2 3.6l6.9-6.9C35.9 2.3 30.5 0 24 0 14.7 0 6.5 5.4 2.5 13.2l8 6.2C12.4 13.7 17.7 9.5 24 9.5z"/>
           </svg>
-          Sign in with Google
+          התחבר עם גוגל
         </button>
       </div>
     )

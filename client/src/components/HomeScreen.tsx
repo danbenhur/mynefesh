@@ -10,18 +10,20 @@ import type { Umbrella } from '../types/umbrella'
 
 const ICON_PICKS = ['🏠', '👨‍👩‍👧‍👦', '💰', '🧒', '✨', '💪', '📚', '🎵', '🌍', '❤️', '🕍', '💼']
 
-function greeting() {
+function hebrewGreeting(): string {
   const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
+  if (h < 5) return 'לילה טוב'
+  if (h < 12) return 'בוקר טוב'
+  if (h < 17) return 'צהריים טובים'
+  if (h < 20) return 'אחר הצהריים'
+  return 'ערב טוב'
 }
 
 function dateString() {
-  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+  const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
   const now = new Date()
-  return `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`
+  return `יום ${DAYS[now.getDay()]}, ${now.getDate()} ב${MONTHS[now.getMonth()]}`
 }
 
 function sparklineData(u: Umbrella): number[] {
@@ -46,12 +48,12 @@ interface CreateFormProps {
 function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCreate, onCancel }: CreateFormProps) {
   return (
     <div style={{ background: T.bgCard, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(44,44,42,0.06)' }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>New umbrella</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>מטרייה חדשה</p>
       <input
         value={newName}
         onChange={e => setNewName(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && onCreate()}
-        placeholder="Name (e.g. Health)"
+        placeholder="שם (לדוגמה: בריאות)"
         autoFocus
         style={{
           width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
@@ -85,7 +87,7 @@ function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCrea
             fontFamily: 'inherit', opacity: !newName.trim() || creating ? 0.5 : 1,
           }}
         >
-          {creating ? 'Creating…' : 'Create'}
+          {creating ? 'יוצר…' : 'צור'}
         </button>
         <button
           onClick={onCancel}
@@ -94,7 +96,7 @@ function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCrea
             padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          Cancel
+          ביטול
         </button>
       </div>
     </div>
@@ -154,20 +156,20 @@ export default function HomeScreen({ navigate }: Props) {
 
   const lowCount = scoredUmbrellas.filter(u => (u.computedHealthScore ?? 0) < 60).length
   const supportingLine = umbrellas.length === 0
-    ? 'Add umbrellas to see your wellness score.'
+    ? 'הוסף מטריות לראות את ציון הרווחה שלך.'
     : !hasComputedData
-      ? 'Complete your daily interview to see your score.'
+      ? 'השלם את הראיון היומי לראות את הציון שלך.'
       : lowCount > 0
-        ? `${lowCount} area${lowCount === 1 ? '' : 's'} need attention this week.`
-        : 'All areas looking good this week.'
+        ? `${lowCount === 1 ? 'תחום אחד דורש' : `${lowCount} תחומים דורשים`} תשומת לב השבוע.`
+        : 'כל התחומים נראים טוב השבוע.'
 
   return (
-    <div style={{ minHeight: '100%', background: T.bg, paddingBottom: 24 }}>
+    <div dir="rtl" style={{ minHeight: '100%', background: T.bg, paddingBottom: 24 }}>
       {/* Greeting header */}
       <div style={{ padding: '64px 20px 0' }}>
-        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 2 }}>{greeting()}, Dan 👋</p>
+        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 2 }}>{hebrewGreeting()}, דן 👋</p>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: T.charcoal, lineHeight: 1.2, marginBottom: 4 }}>
-          How's your world today?
+          איך העולם שלך היום?
         </h1>
         <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 24 }}>{dateString()}</p>
       </div>
@@ -183,10 +185,10 @@ export default function HomeScreen({ navigate }: Props) {
             <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: '#7A5C00', marginBottom: 4 }}>
-                WhatsApp sandbox expired
+                Sandbox WhatsApp פג תוקפו
               </p>
               <p style={{ fontSize: 12, color: '#7A5C00', lineHeight: 1.5, marginBottom: 8 }}>
-                Check-ins won't send until you re-join the Twilio sandbox. Go to Settings to renew.
+                צ'ק-אינים לא יישלחו עד שתצטרף מחדש ל-sandbox של Twilio. עבור להגדרות לחידוש.
               </p>
               <button
                 onClick={handleMarkJoined}
@@ -198,7 +200,7 @@ export default function HomeScreen({ navigate }: Props) {
                   fontFamily: 'inherit', opacity: markingJoined ? 0.7 : 1,
                 }}
               >
-                {markingJoined ? 'Saving…' : "I've re-joined ✓"}
+                {markingJoined ? 'שומר…' : 'הצטרפתי מחדש ✓'}
               </button>
             </div>
           </div>
@@ -227,7 +229,7 @@ export default function HomeScreen({ navigate }: Props) {
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>Life Wellness Score</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>ציון רווחה כללי</p>
             <p style={{ fontSize: 12, color: T.charcoalMid, lineHeight: 1.5, marginBottom: 10 }}>{supportingLine}</p>
             {umbrellas.length > 0 && hasComputedData && overallScore >= 50 && (
               <span style={{
@@ -236,7 +238,7 @@ export default function HomeScreen({ navigate }: Props) {
                 fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20,
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sage }} />
-                Good momentum
+                מומנטום טוב
               </span>
             )}
           </div>
@@ -247,21 +249,21 @@ export default function HomeScreen({ navigate }: Props) {
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <Icon name="sparkle" size={16} color={T.amber} />
-          <span style={{ fontSize: 15, fontWeight: 600, color: T.charcoal }}>Nefesh suggests</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: T.charcoal }}>Nefesh מציע</span>
         </div>
         <div style={{
           background: T.sageLight, borderRadius: 16, padding: '16px 18px',
           border: `1px dashed ${T.sageMid}`,
         }}>
           <p style={{ fontSize: 13, color: T.charcoalLight, lineHeight: 1.6, textAlign: 'center' }}>
-            Nefesh suggestions will appear here as data accumulates.
+            Nefesh יציע לך הצעות ככל שיצטבר מידע
           </p>
         </div>
       </div>
 
       {/* Life Umbrellas */}
       <div style={{ padding: '0 20px' }}>
-        <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>Life Umbrellas</p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>המטריות שלי</p>
 
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
@@ -277,9 +279,9 @@ export default function HomeScreen({ navigate }: Props) {
           <div>
             <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
               <p style={{ fontSize: 36, marginBottom: 8 }}>🌿</p>
-              <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>No umbrellas yet</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>אין מטריות עדיין</p>
               <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 16 }}>
-                Create your first life area to get started
+                צור את תחום החיים הראשון שלך
               </p>
               {!showCreate && (
                 <button
@@ -290,7 +292,7 @@ export default function HomeScreen({ navigate }: Props) {
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}
                 >
-                  + Create umbrella
+                  + צור מטרייה ראשונה
                 </button>
               )}
             </div>
@@ -319,7 +321,7 @@ export default function HomeScreen({ navigate }: Props) {
                     style={{
                       gridColumn: isLastOdd ? '1 / -1' : undefined,
                       background: T.bgCard, borderRadius: 16, padding: 14,
-                      border: 'none', cursor: 'pointer', textAlign: 'left',
+                      border: 'none', cursor: 'pointer', textAlign: 'start',
                       boxShadow: '0 1px 8px rgba(44,44,42,0.05)', fontFamily: 'inherit',
                     }}
                   >
@@ -362,7 +364,7 @@ export default function HomeScreen({ navigate }: Props) {
                 }}
               >
                 <Icon name="plus" size={14} color={T.charcoalLight} />
-                Add umbrella
+                הוסף מטרייה
               </button>
             ) : (
               <CreateForm
