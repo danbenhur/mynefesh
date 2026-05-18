@@ -8,44 +8,20 @@ import { getSandboxStatus, markSandboxJoined, listArchivedUmbrellas } from '../l
 import type { NavigateFn } from '../types/nav'
 import type { Umbrella } from '../types/umbrella'
 
-const NUDGES = [
-  {
-    bg: T.amberLight,
-    accent: T.amber,
-    emoji: '🎂',
-    title: "Sarah's birthday",
-    body: 'Coming up in 3 weeks. Time to plan something special.',
-  },
-  {
-    bg: T.blueLight,
-    accent: T.blue,
-    emoji: '💰',
-    title: 'Financial review overdue',
-    body: "You haven't reviewed your expenses this month.",
-  },
-  {
-    bg: T.sageLight,
-    accent: T.sage,
-    emoji: '✨',
-    title: 'Shabbat prep',
-    body: 'Friday starts at 7:22pm. A few things to prepare.',
-  },
-]
-
 const ICON_PICKS = ['🏠', '👨‍👩‍👧‍👦', '💰', '🧒', '✨', '💪', '📚', '🎵', '🌍', '❤️', '🕍', '💼']
 
 function greeting() {
   const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
+  if (h < 12) return 'בוקר טוב'
+  if (h < 17) return 'צהריים טובים'
+  return 'ערב טוב'
 }
 
 function dateString() {
-  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+  const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר']
   const now = new Date()
-  return `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`
+  return `יום ${DAYS[now.getDay()]}, ${now.getDate()} ב${MONTHS[now.getMonth()]}`
 }
 
 function sparklineData(u: Umbrella): number[] {
@@ -70,12 +46,12 @@ interface CreateFormProps {
 function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCreate, onCancel }: CreateFormProps) {
   return (
     <div style={{ background: T.bgCard, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(44,44,42,0.06)' }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>New umbrella</p>
+      <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>מטרייה חדשה</p>
       <input
         value={newName}
         onChange={e => setNewName(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && onCreate()}
-        placeholder="Name (e.g. Health)"
+        placeholder="שם (לדוג׳ בריאות)"
         autoFocus
         style={{
           width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
@@ -109,7 +85,7 @@ function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCrea
             fontFamily: 'inherit', opacity: !newName.trim() || creating ? 0.5 : 1,
           }}
         >
-          {creating ? 'Creating…' : 'Create'}
+          {creating ? 'יוצר…' : 'צור'}
         </button>
         <button
           onClick={onCancel}
@@ -118,7 +94,7 @@ function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCrea
             padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          Cancel
+          ביטול
         </button>
       </div>
     </div>
@@ -178,20 +154,20 @@ export default function HomeScreen({ navigate }: Props) {
 
   const lowCount = scoredUmbrellas.filter(u => (u.computedHealthScore ?? 0) < 60).length
   const supportingLine = umbrellas.length === 0
-    ? 'Add umbrellas to see your wellness score.'
+    ? 'הוסף מטריות כדי לראות את ציון הבריאות שלך.'
     : !hasComputedData
-      ? 'Complete your daily interview to see your score.'
+      ? 'השלם את הצ׳ק-אין היומי כדי לראות את הציון שלך.'
       : lowCount > 0
-        ? `${lowCount} area${lowCount === 1 ? '' : 's'} need attention this week.`
-        : 'All areas looking good this week.'
+        ? `${lowCount} תחום${lowCount === 1 ? '' : 'ות'} דורש${lowCount === 1 ? '' : 'ים'} תשומת לב השבוע.`
+        : 'כל התחומים נראים טוב השבוע.'
 
   return (
     <div style={{ minHeight: '100%', background: T.bg, paddingBottom: 24 }}>
       {/* Greeting header */}
       <div style={{ padding: '64px 20px 0' }}>
-        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 2 }}>{greeting()}, Dan 👋</p>
+        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 2 }}>{greeting()}, דן 👋</p>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: T.charcoal, lineHeight: 1.2, marginBottom: 4 }}>
-          How's your world today?
+          מה שלום עולמך היום?
         </h1>
         <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 24 }}>{dateString()}</p>
       </div>
@@ -207,10 +183,10 @@ export default function HomeScreen({ navigate }: Props) {
             <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: '#7A5C00', marginBottom: 4 }}>
-                WhatsApp sandbox expired
+                חול הסנדבוקס של WhatsApp פג תוקפו
               </p>
               <p style={{ fontSize: 12, color: '#7A5C00', lineHeight: 1.5, marginBottom: 8 }}>
-                Check-ins won't send until you re-join the Twilio sandbox. Go to Settings to renew.
+                הצ׳ק-אינים לא יישלחו עד שתצטרף מחדש לסנדבוקס של Twilio. לך להגדרות לחידוש.
               </p>
               <button
                 onClick={handleMarkJoined}
@@ -222,7 +198,7 @@ export default function HomeScreen({ navigate }: Props) {
                   fontFamily: 'inherit', opacity: markingJoined ? 0.7 : 1,
                 }}
               >
-                {markingJoined ? 'Saving…' : "I've re-joined ✓"}
+                {markingJoined ? 'שומר…' : 'הצטרפתי מחדש ✓'}
               </button>
             </div>
           </div>
@@ -249,7 +225,7 @@ export default function HomeScreen({ navigate }: Props) {
             </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>Life Wellness Score</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>ציון בריאות כולל</p>
             <p style={{ fontSize: 12, color: T.charcoalMid, lineHeight: 1.5, marginBottom: 10 }}>{supportingLine}</p>
             {umbrellas.length > 0 && hasComputedData && overallScore >= 50 && (
               <span style={{
@@ -258,46 +234,32 @@ export default function HomeScreen({ navigate }: Props) {
                 fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20,
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sage }} />
-                Good momentum
+                מומנטום טוב
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* AI Nudges */}
+      {/* AI Nudges — empty state until real data accumulates */}
       <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
           <Icon name="sparkle" size={16} color={T.amber} />
-          <span style={{ fontSize: 15, fontWeight: 600, color: T.charcoal }}>Nefesh suggests</span>
-          <span style={{ fontSize: 12, color: T.charcoalLight, marginLeft: 2 }}>3 nudges</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: T.charcoal }}>Nefesh ממליץ</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {NUDGES.map((nudge, i) => (
-            <button
-              key={nudge.title}
-              onClick={() => navigate('chat')}
-              style={{
-                background: nudge.bg, borderRadius: 16, padding: '14px 16px',
-                border: 'none', cursor: 'pointer', textAlign: 'left',
-                display: 'flex', alignItems: 'flex-start', gap: 12, fontFamily: 'inherit',
-                animation: `nudge-float 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 80}ms both`,
-              }}
-            >
-              <span style={{ fontSize: 22, flexShrink: 0 }}>{nudge.emoji}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 2 }}>{nudge.title}</p>
-                <p style={{ fontSize: 12, color: T.charcoalMid, lineHeight: 1.5 }}>{nudge.body}</p>
-              </div>
-              <Icon name="chevron" size={16} color={nudge.accent} />
-            </button>
-          ))}
+        <div style={{
+          background: T.bgCard, borderRadius: 16, padding: '16px 18px',
+          boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
+        }}>
+          <p style={{ fontSize: 13, color: T.charcoalLight, lineHeight: 1.6 }}>
+            המלצות Nefesh יופיעו כאן ככל שמצטבר מידע מהצ׳ק-אינים היומיים.
+          </p>
         </div>
       </div>
 
       {/* Life Umbrellas */}
       <div style={{ padding: '0 20px' }}>
-        <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>Life Umbrellas</p>
+        <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>מטריות החיים</p>
 
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
@@ -313,9 +275,9 @@ export default function HomeScreen({ navigate }: Props) {
           <div>
             <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
               <p style={{ fontSize: 36, marginBottom: 8 }}>🌿</p>
-              <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>No umbrellas yet</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>אין מטריות עדיין</p>
               <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 16 }}>
-                Create your first life area to get started
+                צור את תחום החיים הראשון שלך
               </p>
               {!showCreate && (
                 <button
@@ -326,7 +288,7 @@ export default function HomeScreen({ navigate }: Props) {
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}
                 >
-                  + Create umbrella
+                  + צור מטרייה
                 </button>
               )}
             </div>
@@ -398,7 +360,7 @@ export default function HomeScreen({ navigate }: Props) {
                 }}
               >
                 <Icon name="plus" size={14} color={T.charcoalLight} />
-                Add umbrella
+                הוסף מטרייה
               </button>
             ) : (
               <CreateForm

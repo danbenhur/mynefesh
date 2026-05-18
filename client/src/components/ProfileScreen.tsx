@@ -166,13 +166,13 @@ export default function ProfileScreen({ user, navigate }: Props) {
         )}
         <p style={{ fontSize: 20, fontWeight: 700, color: T.charcoal, marginBottom: 4 }}>{displayName}</p>
         <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 8 }}>
-          Kfar Chabad, Israel · Father of 11
+          כפר חב"ד, ישראל · אבא של 11
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sage }} />
           <span style={{ fontSize: 13, color: T.charcoalMid }}>myNefesh Pro</span>
           <span style={{ fontSize: 13, color: T.charcoalLight }}>•</span>
-          <span style={{ fontSize: 13, color: T.charcoalLight }}>Member since 2024</span>
+          <span style={{ fontSize: 13, color: T.charcoalLight }}>חבר מאז 2024</span>
         </div>
       </div>
 
@@ -184,15 +184,16 @@ export default function ProfileScreen({ user, navigate }: Props) {
         }}>
           {umbrellas.map(u => {
             const color = umbrellaColor(u.name)
+            const displayScore = u.computedHealthScore ?? u.healthScore
             return (
               <div key={u.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <div style={{ position: 'relative', width: 36, height: 36 }}>
-                  <Ring score={u.healthScore} size={36} stroke={3} color={color} animate={false} />
+                  <Ring score={displayScore} size={36} stroke={3} color={color} animate={false} />
                   <div style={{
                     position: 'absolute', inset: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color }}>{u.healthScore}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color }}>{displayScore}</span>
                   </div>
                 </div>
                 <span style={{
@@ -210,21 +211,21 @@ export default function ProfileScreen({ user, navigate }: Props) {
 
       <div style={{ padding: '0 20px' }}>
         {/* Notifications */}
-        <SectionHeader title="Notifications" />
+        <SectionHeader title="התראות" />
         <div style={{ background: T.bgCard, borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 6px rgba(44,44,42,0.05)' }}>
           <Row
-            label="Morning brief"
-            detail="Daily at 7:30 AM"
+            label="תקציר בוקר"
+            detail="יומי בשעה 7:30"
             right={<Toggle value={notifications.morningBrief} onChange={v => setNotifications(n => ({ ...n, morningBrief: v }))} />}
           />
           <Row
-            label="AI Nudges"
-            detail="Proactive suggestions"
+            label="רמזי AI"
+            detail="הצעות יזומות"
             right={<Toggle value={notifications.aiNudges} onChange={v => setNotifications(n => ({ ...n, aiNudges: v }))} />}
           />
           <Row
-            label="Shabbat mode"
-            detail="Quiet from Friday sundown"
+            label="מצב שבת"
+            detail="שקט מצאת השבת"
             right={<Toggle value={notifications.shabbatMode} onChange={handleShabbatToggle} />}
           />
           <Row
@@ -240,14 +241,14 @@ export default function ProfileScreen({ user, navigate }: Props) {
         <SectionHeader title="Nefesh AI" />
         <div style={{ background: T.bgCard, borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 6px rgba(44,44,42,0.05)' }}>
           <Row
-            label="Personality"
-            detail="How Nefesh communicates"
+            label="אישיות"
+            detail="איך Nefesh מתקשר"
             right={
               <Chips
                 options={[
-                  { value: 'warm' as const, label: 'Warm' },
-                  { value: 'direct' as const, label: 'Direct' },
-                  { value: 'spiritual' as const, label: 'Spiritual' },
+                  { value: 'warm' as const, label: 'חם' },
+                  { value: 'direct' as const, label: 'ישיר' },
+                  { value: 'spiritual' as const, label: 'רוחני' },
                 ]}
                 value={personality}
                 onChange={setPersonality}
@@ -255,8 +256,8 @@ export default function ProfileScreen({ user, navigate }: Props) {
             }
           />
           <Row
-            label="Language"
-            detail="Interface & AI language"
+            label="שפה"
+            detail="שפת ממשק ו-AI"
             right={
               <Chips
                 options={[
@@ -272,23 +273,23 @@ export default function ProfileScreen({ user, navigate }: Props) {
         </div>
 
         {/* Privacy & Data */}
-        <SectionHeader title="Privacy & Data" />
+        <SectionHeader title="פרטיות ומידע" />
         <div style={{ background: T.bgCard, borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 6px rgba(44,44,42,0.05)' }}>
           <Row
-            label="My data"
-            detail="All stored locally + encrypted"
+            label="הנתונים שלי"
+            detail="נשמר מקומית ומוצפן"
             right={<Icon name="lock" size={18} color={T.charcoalLight} />}
           />
           <Row
-            label="Umbrellas"
-            detail={`${umbrellas.length} area${umbrellas.length === 1 ? '' : 's'} configured`}
+            label="מטריות"
+            detail={`${umbrellas.length} תחומ${umbrellas.length === 1 ? '' : 'ים'} מוגדר${umbrellas.length === 1 ? '' : 'ים'}`}
             right={<Icon name="chevron" size={18} color={T.charcoalLight} />}
             last
           />
         </div>
 
         {/* Account */}
-        <SectionHeader title="Account" />
+        <SectionHeader title="חשבון" />
         <div style={{ background: T.bgCard, borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 6px rgba(44,44,42,0.05)' }}>
           <button
             onClick={handleLogout}
@@ -298,7 +299,7 @@ export default function ProfileScreen({ user, navigate }: Props) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}
           >
-            <span style={{ fontSize: 14, color: T.red, fontWeight: 500 }}>Log out</span>
+            <span style={{ fontSize: 14, color: T.red, fontWeight: 500 }}>התנתק</span>
             <Icon name="chevron" size={18} color={T.red} />
           </button>
         </div>

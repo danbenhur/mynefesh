@@ -4,7 +4,6 @@ import BottomNav, { type NavScreen } from './components/BottomNav'
 import HomeScreen from './components/HomeScreen'
 import UmbrellaDetail from './components/UmbrellaDetail'
 import ChatScreen from './components/ChatScreen'
-import CheckinScreen from './components/CheckinScreen'
 import ProfileScreen from './components/ProfileScreen'
 import SettingsScreen from './components/SettingsScreen'
 import InterviewScreen from './components/InterviewScreen'
@@ -118,7 +117,7 @@ export default function App() {
         <p style={{ fontSize: 56, marginBottom: 24 }}>🌿</p>
         <h1 style={{ fontSize: 26, fontWeight: 700, color: T.charcoal, marginBottom: 8 }}>myNefesh</h1>
         <p style={{ fontSize: 14, color: T.charcoalLight, marginBottom: 48 }}>
-          Your personal AI life secretary
+          מזכיר ה-AI האישי שלך לחיים
         </p>
         {authError && (
           <div style={{
@@ -161,7 +160,7 @@ export default function App() {
             <path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-2.9-.8-4.6s.3-3.2.8-4.6v-6.2H2.5C.9 16.6 0 20.2 0 24s.9 7.4 2.5 10.8l8-6.2z"/>
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.7 1.2 9.2 3.6l6.9-6.9C35.9 2.3 30.5 0 24 0 14.7 0 6.5 5.4 2.5 13.2l8 6.2C12.4 13.7 17.7 9.5 24 9.5z"/>
           </svg>
-          Sign in with Google
+          התחבר עם גוגל
         </button>
       </div>
     )
@@ -187,7 +186,7 @@ export default function App() {
 
         {current.screen === 'chat' && <ChatScreen />}
 
-        {current.screen === 'checkin' && <CheckinScreen navigate={navigate} />}
+        {current.screen === 'checkin' && <InterviewScreen navigate={navigate} />}
 
         {current.screen === 'profile' && <ProfileScreen user={auth.user} navigate={navigate} />}
 

@@ -12,11 +12,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'home',      icon: 'home',     label: 'Home' },
-  { id: 'umbrellas', icon: 'umbrellas', label: 'Umbrellas' },
+  { id: 'home',      icon: 'home',     label: 'בית' },
+  { id: 'umbrellas', icon: 'umbrellas', label: 'מטריות' },
   { id: 'chat',      icon: 'chat',     label: 'Nefesh', center: true },
-  { id: 'checkin',   icon: 'checkin',  label: 'Check-in' },
-  { id: 'profile',   icon: 'profile',  label: 'Profile' },
+  { id: 'checkin',   icon: 'checkin',  label: "צ'ק-אין" },
+  { id: 'profile',   icon: 'profile',  label: 'פרופיל' },
 ]
 
 interface Props {

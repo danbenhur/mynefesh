@@ -58,7 +58,7 @@ export default function ArchivedScreen({ goBack }: Props) {
           }}
         >
           <Icon name="back" size={16} color={T.charcoalLight} />
-          Back
+          חזור
         </button>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal }}>📦 ארכיון</h1>
         <p style={{ fontSize: 13, color: T.charcoalLight, marginTop: 4 }}>מטריות מוסתרות — ניתן לשחזר בכל עת</p>
