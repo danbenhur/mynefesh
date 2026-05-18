@@ -330,6 +330,7 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 - **Settings screen** — All WhatsApp settings persisted to DB
 - **Tasks** — Create, status toggle, priority, delete per umbrella
 - **Archived umbrellas** — Archive, browse, restore flow
+- **Full Hebrew + RTL UI** — All screens localized: login, nav tabs, HomeScreen, ChatScreen, ProfileScreen, UmbrellaDetail, ArchivedScreen; `index.html` has `lang="he" dir="rtl"`
 
 ---
 
@@ -394,7 +395,7 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 - When adding features, ask: "does this make Dan's life simpler or more complex?"
 - The north star: Dan opens MyNefesh and immediately feels clarity and calm
 - Never add hardcoded example data (names, placeholder content) to UI components
-- The `CheckinScreen` component still exists in `client/src/components/` but is not routed — `App.tsx` routes `checkin` → `InterviewScreen`. Don't resurrect CheckinScreen.
+- `CheckinScreen` was deleted — `App.tsx` routes `checkin` → `InterviewScreen`. Don't create a new one.
 - Before touching the WhatsApp scheduler, test locally with `NODE_ENV=development` and mock Twilio calls
 
 ---
