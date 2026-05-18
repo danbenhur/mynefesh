@@ -3,7 +3,7 @@ import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
-import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend } from '../lib/api'
+import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend, createUmbrella } from '../lib/api'
 import type { ApiUmbrellaTrendPoint, ApiQuestionTrendPoint } from '../lib/api'
 import { useStore } from '../store/useStore'
 import type { Umbrella } from '../types/umbrella'
@@ -350,6 +350,12 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [saving, setSaving] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
+  // Child umbrella creation state
+  const [showCreateChild, setShowCreateChild] = useState(false)
+  const [childName, setChildName] = useState('')
+  const [childIcon, setChildIcon] = useState('🏠')
+  const [creatingChild, setCreatingChild] = useState(false)
+
   // Archive / delete state
   const [archiving, setArchiving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -421,6 +427,20 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
     await deleteQuestion(id)
     setQuestions(prev => prev.filter(q => q.id !== id))
     setConfirmDeleteId(null)
+  }
+
+  async function handleCreateChild() {
+    if (!childName.trim()) return
+    setCreatingChild(true)
+    try {
+      await createUmbrella({ name: childName.trim(), icon: childIcon, parentId: umbrella.id })
+      await loadUmbrellas()
+      setChildName('')
+      setChildIcon('🏠')
+      setShowCreateChild(false)
+    } finally {
+      setCreatingChild(false)
+    }
   }
 
   async function handleArchive() {
@@ -518,9 +538,24 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
         </div>
 
         {/* Sub-areas */}
-        {umbrella.children.length > 0 && (
-          <>
-            <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>תתי-מטריות</p>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal }}>תתי-מטריות</p>
+            {!showCreateChild && (
+              <button
+                onClick={() => setShowCreateChild(true)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, color: T.sage,
+                  fontFamily: 'inherit', padding: '2px 6px',
+                }}
+              >
+                + הוסף
+              </button>
+            )}
+          </div>
+
+          {umbrella.children.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {umbrella.children.map(child => {
                 const childColor = umbrellaColor(child.name)
@@ -581,14 +616,81 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                 )
               })}
             </div>
-          </>
-        )}
+          )}
 
-        {umbrella.children.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '24px 0', color: T.charcoalLight, fontSize: 13 }}>
-            אין תתי-מטרות עדיין.
-          </div>
-        )}
+          {umbrella.children.length === 0 && !showCreateChild && (
+            <p style={{
+              fontSize: 13, color: T.charcoalLight, textAlign: 'center',
+              padding: '20px 0', fontStyle: 'italic',
+            }}>
+              אין תתי-מטרות עדיין
+            </p>
+          )}
+
+          {showCreateChild && (
+            <div dir="rtl" style={{
+              background: T.bgCard, borderRadius: 16, padding: 16,
+              boxShadow: '0 1px 8px rgba(44,44,42,0.06)',
+              marginTop: umbrella.children.length > 0 ? 10 : 0,
+            }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>
+                תת-מטרייה חדשה
+              </p>
+              <input
+                value={childName}
+                onChange={e => setChildName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCreateChild()}
+                placeholder="שם (לדוג׳ בריאות)"
+                autoFocus
+                style={{
+                  width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
+                  borderRadius: 10, padding: '8px 12px', fontSize: 13, color: T.charcoal,
+                  outline: 'none', marginBottom: 12, fontFamily: 'inherit',
+                  boxSizing: 'border-box', direction: 'rtl',
+                }}
+              />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {['🏠','👨‍👩‍👧‍👦','💰','🧒','✨','💪','📚','🎵','🌍','❤️','🕍','💼'].map(icon => (
+                  <button
+                    key={icon}
+                    onClick={() => setChildIcon(icon)}
+                    style={{
+                      width: 36, height: 36, fontSize: 18, borderRadius: 10, border: 'none',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      background: childIcon === icon ? T.sage : T.sageLight,
+                      outline: childIcon === icon ? `2px solid ${T.sage}` : 'none',
+                    }}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleCreateChild}
+                  disabled={!childName.trim() || creatingChild}
+                  style={{
+                    flex: 1, background: T.sage, color: '#fff', borderRadius: 10, border: 'none',
+                    padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'inherit', opacity: !childName.trim() || creatingChild ? 0.5 : 1,
+                  }}
+                >
+                  {creatingChild ? 'יוצר…' : 'צור'}
+                </button>
+                <button
+                  onClick={() => { setShowCreateChild(false); setChildName(''); setChildIcon('🏠') }}
+                  style={{
+                    flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10,
+                    border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── Questions section ─────────────────────────────────── */}
         <div style={{ marginTop: 24 }} dir="rtl">
