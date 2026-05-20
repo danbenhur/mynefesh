@@ -7,17 +7,17 @@ function getClient() {
   return twilio(sid, token)
 }
 
-export async function sendWhatsApp(text: string): Promise<string | null> {
+export async function sendSMS(text: string): Promise<string | null> {
   const client = getClient()
   if (!client) {
-    console.warn('[whatsapp] Twilio env vars not set — skipping send')
+    console.warn('[messaging] Twilio env vars not set — skipping send')
     return null
   }
 
-  const from = process.env.TWILIO_WHATSAPP_FROM
-  const to = process.env.USER_WHATSAPP_NUMBER
+  const from = process.env.TWILIO_SMS_FROM ?? process.env.TWILIO_WHATSAPP_FROM
+  const to = process.env.USER_SMS_NUMBER ?? process.env.USER_WHATSAPP_NUMBER
   if (!from || !to) {
-    console.warn('[whatsapp] TWILIO_WHATSAPP_FROM or USER_WHATSAPP_NUMBER not set — skipping send')
+    console.warn('[messaging] No from/to configured (set TWILIO_SMS_FROM + USER_SMS_NUMBER) — skipping send')
     return null
   }
 
@@ -26,10 +26,10 @@ export async function sendWhatsApp(text: string): Promise<string | null> {
       ? `${process.env.PUBLIC_URL}/webhook/whatsapp-status`
       : undefined
     const msg = await client.messages.create({ from, to, body: text, statusCallback })
-    console.log(`[whatsapp] Sent message SID=${msg.sid}`)
+    console.log(`[messaging] Sent message SID=${msg.sid}`)
     return msg.sid
   } catch (err) {
-    console.error('[whatsapp] Send failed:', err)
+    console.error('[messaging] Send failed:', err)
     return null
   }
 }

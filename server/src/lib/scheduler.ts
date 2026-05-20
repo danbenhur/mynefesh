@@ -3,7 +3,7 @@ import SunCalc from 'suncalc'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { userSettings, whatsappSession } from '../db/schema.js'
-import { sendWhatsApp } from './whatsapp.js'
+import { sendSMS } from './whatsapp.js'
 import { checkinWithLink, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173'
@@ -111,7 +111,7 @@ async function tickCheckin() {
 
     if (session.state === 'pending' && hhmm >= effectiveCheckinTime) {
       const interviewUrl = `${FRONTEND_URL}/#/interview`
-      const sid = await sendWhatsApp(checkinWithLink(interviewUrl))
+      const sid = await sendSMS(checkinWithLink(interviewUrl))
       if (sid) {
         await db
           .update(whatsappSession)
@@ -147,7 +147,7 @@ async function tickMorning() {
     if (rows.length === 0) return
     const prev = rows[0]
     if (prev.state !== 'completed') {
-      await sendWhatsApp(MORNING_AFTER_SKIP)
+      await sendSMS(MORNING_AFTER_SKIP)
     }
   } catch (err) {
     console.error('[scheduler] tickMorning error:', err)
@@ -172,7 +172,7 @@ async function tickSandboxReminder() {
       if (hoursSinceReminder < 24) return
     }
 
-    const sid = await sendWhatsApp(SANDBOX_EXPIRY_REMINDER)
+    const sid = await sendSMS(SANDBOX_EXPIRY_REMINDER)
     if (sid) {
       const db = getDb()
       await db

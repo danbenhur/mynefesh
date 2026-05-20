@@ -1,8 +1,9 @@
 import { Router } from 'express'
+import type { Request, Response } from 'express'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { whatsappSession, userSettings } from '../db/schema.js'
-import { sendWhatsApp } from '../lib/whatsapp.js'
+import { sendSMS } from '../lib/whatsapp.js'
 import { SNOOZE_FOLLOWUP, FINAL, CHECKIN_THANKS } from '../lib/whatsapp-messages.js'
 
 const router = Router()
@@ -18,7 +19,7 @@ function todayJerusalem(): string {
   return `${get('year')}-${get('month')}-${get('day')}`
 }
 
-router.post('/whatsapp', async (req, res) => {
+async function handleInboundMessage(req: Request, res: Response) {
   res.set('Content-Type', 'text/xml')
 
   try {
@@ -46,7 +47,7 @@ router.post('/whatsapp', async (req, res) => {
     const isDone = ['done', 'בוצע', 'finished', 'סיימתי', 'גמרתי'].includes(body)
 
     if (isDone) {
-      const sid = await sendWhatsApp(CHECKIN_THANKS)
+      const sid = await sendSMS(CHECKIN_THANKS)
       if (sid) {
         await db
           .update(whatsappSession)
@@ -59,7 +60,7 @@ router.post('/whatsapp', async (req, res) => {
       // treat any reply that isn't a done keyword as a snooze
       const newCount = session.snoozeCount + 1
       if (newCount >= 3) {
-        const sid = await sendWhatsApp(FINAL)
+        const sid = await sendSMS(FINAL)
         if (sid) {
           await db
             .update(whatsappSession)
@@ -69,7 +70,7 @@ router.post('/whatsapp', async (req, res) => {
           console.log('[webhook] Final send failed — state unchanged, will retry on next snooze reply')
         }
       } else {
-        const sid = await sendWhatsApp(SNOOZE_FOLLOWUP)
+        const sid = await sendSMS(SNOOZE_FOLLOWUP)
         if (sid) {
           await db
             .update(whatsappSession)
@@ -81,14 +82,13 @@ router.post('/whatsapp', async (req, res) => {
       }
     }
   } catch (err) {
-    console.error('[webhook] Error processing WhatsApp message:', err)
+    console.error('[webhook] Error processing inbound message:', err)
   }
 
   res.send(TWIML_OK)
-})
+}
 
-// Twilio delivery status callback — updates sandbox_status on failure
-router.post('/whatsapp-status', async (req, res) => {
+async function handleDeliveryStatus(req: Request, res: Response) {
   try {
     const messageStatus = String(req.body?.MessageStatus ?? '')
     if (messageStatus === 'failed' || messageStatus === 'undelivered') {
@@ -103,9 +103,17 @@ router.post('/whatsapp-status', async (req, res) => {
       }
     }
   } catch (err) {
-    console.error('[webhook] whatsapp-status callback error:', err)
+    console.error('[webhook] delivery-status callback error:', err)
   }
   res.sendStatus(204)
-})
+}
+
+// SMS routes (new)
+router.post('/sms', handleInboundMessage)
+router.post('/sms-status', handleDeliveryStatus)
+
+// WhatsApp routes kept for backward compat — same handlers
+router.post('/whatsapp', handleInboundMessage)
+router.post('/whatsapp-status', handleDeliveryStatus)
 
 export default router

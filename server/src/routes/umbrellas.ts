@@ -147,6 +147,38 @@ router.patch('/:id', async (req, res) => {
   }
   try {
     const db = getDb()
+
+    if (parse.data.parentId) {
+      const newParentId = parse.data.parentId
+      const umbrellaId = req.params.id
+
+      const allRows = await db.select({ id: umbrellas.id, parentId: umbrellas.parentId }).from(umbrellas)
+      const parentMap = new Map<string, string | null>()
+      for (const r of allRows) parentMap.set(r.id, r.parentId ?? null)
+
+      // cycle check: walk up from new parent — if we reach this umbrella it's a cycle
+      let cursor: string | null = newParentId
+      while (cursor !== null) {
+        if (cursor === umbrellaId) {
+          res.status(400).json({ error: 'Cannot move umbrella under its own descendant' })
+          return
+        }
+        cursor = parentMap.get(cursor) ?? null
+      }
+
+      // depth check: umbrella lands at depth = (depth of new parent) + 1
+      let depth = 1
+      cursor = newParentId
+      while (cursor !== null) {
+        depth++
+        cursor = parentMap.get(cursor) ?? null
+      }
+      if (depth > 5) {
+        res.status(400).json({ error: 'Maximum hierarchy depth exceeded' })
+        return
+      }
+    }
+
     const { archivedAt, ...rest } = parse.data
     const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() }
     if (archivedAt !== undefined) {

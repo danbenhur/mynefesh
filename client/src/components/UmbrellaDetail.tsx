@@ -3,7 +3,7 @@ import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
-import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend, createUmbrella, getQuestionMultiTrend } from '../lib/api'
+import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend, createUmbrella, getQuestionMultiTrend, updateUmbrella } from '../lib/api'
 import type { ApiUmbrellaTrendPoint, ApiQuestionTrendPoint, ApiMultiTrendPoint } from '../lib/api'
 import { useStore } from '../store/useStore'
 import type { Umbrella } from '../types/umbrella'
@@ -410,6 +410,17 @@ function QuestionForm({ form, onChange, onSave, onCancel, saving }: QuestionForm
   )
 }
 
+function flattenWithDepth(list: Umbrella[], depth = 0): Array<{ u: Umbrella; depth: number }> {
+  return list.flatMap(u => [{ u, depth }, ...flattenWithDepth(u.children, depth + 1)])
+}
+
+function collectDescendantIds(u: Umbrella): Set<string> {
+  const ids = new Set<string>()
+  function walk(node: Umbrella) { ids.add(node.id); node.children.forEach(walk) }
+  u.children.forEach(walk)
+  return ids
+}
+
 interface Props {
   umbrella: Umbrella
   navigate: NavigateFn
@@ -418,7 +429,7 @@ interface Props {
 
 export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const color = umbrellaColor(umbrella.name)
-  const { loadUmbrellas } = useStore()
+  const { loadUmbrellas, umbrellas: allUmbrellas } = useStore()
 
   // Questions state
   const [questions, setQuestions] = useState<Question[]>([])
@@ -441,6 +452,11 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+
+  // Move-under-parent state
+  const [showMoveModal, setShowMoveModal] = useState(false)
+  const [moveTargetId, setMoveTargetId] = useState<string | null | undefined>(undefined)
+  const [moving, setMoving] = useState(false)
 
   // Analytics trends
   const [umbrellaTrend, setUmbrellaTrend] = useState<ApiUmbrellaTrendPoint[]>([])
@@ -544,6 +560,20 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
       setTimeout(() => { goBack() }, 1200)
     } catch {
       setArchiving(false)
+    }
+  }
+
+  async function handleMove() {
+    if (moveTargetId === undefined) return
+    setMoving(true)
+    try {
+      await updateUmbrella(umbrella.id, { parentId: moveTargetId })
+      await loadUmbrellas()
+      navigate('home')
+    } catch (err) {
+      console.error('handleMove:', err)
+      setMoving(false)
+      setShowMoveModal(false)
     }
   }
 
@@ -658,9 +688,11 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                 return (
                   <div
                     key={child.id}
+                    onClick={() => navigate('umbrella', { umbrellaId: child.id })}
                     style={{
                       background: T.bgCard, borderRadius: 16, padding: '14px 16px',
                       boxShadow: '0 1px 8px rgba(44,44,42,0.05)',
+                      cursor: 'pointer',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -692,7 +724,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                           <span style={{ fontSize: 12, color: T.charcoalMid, flex: 1 }}>{topTask.title}</span>
                         </div>
                         <button
-                          onClick={() => navigate('chat')}
+                          onClick={(e) => { e.stopPropagation(); navigate('chat') }}
                           style={{
                             background: 'none', border: 'none', cursor: 'pointer',
                             fontSize: 11, fontWeight: 700,
@@ -1078,6 +1110,16 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
+                onClick={() => { setMoveTargetId(undefined); setShowMoveModal(true) }}
+                style={{
+                  width: '100%', padding: '12px 0', borderRadius: 14, border: 'none',
+                  background: T.blueLight, color: T.blue,
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                מעבר תחת מטרייה אחרת
+              </button>
+              <button
                 onClick={handleArchive}
                 disabled={archiving}
                 style={{
@@ -1133,6 +1175,110 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
       >
         <Icon name="sparkle" size={22} color="#fff" strokeWidth={1.8} />
       </button>
+
+      {/* Move-under-parent modal */}
+      {showMoveModal && (() => {
+        const descendantIds = collectDescendantIds(umbrella)
+        const flat = flattenWithDepth(allUmbrellas).filter(
+          ({ u }) => u.id !== umbrella.id && !descendantIds.has(u.id)
+        )
+        return (
+          <div
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(44,44,42,0.5)',
+              zIndex: 200, display: 'flex', alignItems: 'flex-end',
+            }}
+            onClick={() => setShowMoveModal(false)}
+          >
+            <div
+              dir="rtl"
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%', maxWidth: 430, margin: '0 auto',
+                background: T.bgCard, borderRadius: '20px 20px 0 0',
+                padding: '20px 0 40px',
+                maxHeight: '70vh', display: 'flex', flexDirection: 'column',
+              }}
+            >
+              <p style={{
+                fontSize: 15, fontWeight: 700, color: T.charcoal,
+                padding: '0 20px 14px', borderBottom: `1px solid rgba(44,44,42,0.08)`,
+                marginBottom: 0, flexShrink: 0,
+              }}>
+                העבר מטרייה אל…
+              </p>
+
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                {/* Root option */}
+                <button
+                  onClick={() => setMoveTargetId(null)}
+                  style={{
+                    width: '100%', background: moveTargetId === null ? T.blueLight : 'transparent',
+                    border: 'none', cursor: 'pointer', padding: '12px 20px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    fontFamily: 'inherit', textAlign: 'right',
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>🏠</span>
+                  <span style={{
+                    fontSize: 14, color: moveTargetId === null ? T.blue : T.charcoal, fontWeight: moveTargetId === null ? 700 : 400,
+                  }}>
+                    ללא הורה (מטרייה ראשית)
+                  </span>
+                </button>
+
+                {flat.map(({ u, depth }) => (
+                  <button
+                    key={u.id}
+                    onClick={() => setMoveTargetId(u.id)}
+                    style={{
+                      width: '100%',
+                      background: moveTargetId === u.id ? T.blueLight : 'transparent',
+                      border: 'none', cursor: 'pointer',
+                      padding: `12px 20px 12px ${20 + depth * 18}px`,
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      fontFamily: 'inherit', textAlign: 'right',
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{u.icon || '🌿'}</span>
+                    <span style={{
+                      fontSize: 14, color: moveTargetId === u.id ? T.blue : T.charcoal,
+                      fontWeight: moveTargetId === u.id ? 700 : 400,
+                    }}>
+                      {u.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, padding: '14px 20px 0', flexShrink: 0, borderTop: `1px solid rgba(44,44,42,0.08)` }}>
+                <button
+                  onClick={handleMove}
+                  disabled={moveTargetId === undefined || moving}
+                  style={{
+                    flex: 1, background: T.blue, color: '#fff', borderRadius: 12,
+                    border: 'none', padding: '11px 0', fontSize: 14, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    opacity: moveTargetId === undefined || moving ? 0.5 : 1,
+                  }}
+                >
+                  {moving ? 'מעביר…' : 'אישור'}
+                </button>
+                <button
+                  onClick={() => setShowMoveModal(false)}
+                  style={{
+                    flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 12,
+                    border: 'none', padding: '11px 0', fontSize: 14, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
