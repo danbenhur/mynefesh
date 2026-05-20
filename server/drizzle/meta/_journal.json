@@ -71,6 +71,13 @@
       "when": 1747180800000,
       "tag": "0009_answer_comments_multi_select",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1747267200000,
+      "tag": "0010_fix_missing_columns",
+      "breakpoints": true
     }
   ]
 }
