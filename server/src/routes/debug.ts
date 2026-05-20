@@ -142,6 +142,30 @@ router.get('/data-counts-public', async (_req, res) => {
   }
 })
 
+// Public — dumps raw question_answers rows to verify answer_normalized is set
+router.get('/answers-public', async (_req, res) => {
+  const pool = getPgPool()
+  if (!pool) {
+    res.status(503).json({ error: 'No database connection' })
+    return
+  }
+  try {
+    const result = await pool.query(`
+      SELECT qa.id, qa.question_id, qa.interview_date,
+             qa.answer_text, qa.answer_scale, qa.answer_boolean,
+             qa.answer_normalized, qa.comment,
+             uq.answer_type, uq.scale_min, uq.scale_max
+      FROM question_answers qa
+      JOIN umbrella_questions uq ON uq.id = qa.question_id
+      ORDER BY qa.interview_date DESC, qa.created_at DESC
+      LIMIT 30
+    `)
+    res.json({ count: result.rowCount, rows: result.rows })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
 // One-shot schema repair — runs the ALTER statements that the migration runner
 // failed to apply, then removes itself from usefulness via a guard flag.
 router.post('/force-schema-public', async (_req, res) => {

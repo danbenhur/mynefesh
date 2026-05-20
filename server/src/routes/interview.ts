@@ -112,9 +112,12 @@ router.post('/answer', async (req, res) => {
     }
 
     let answerNormalized: number | null = null
-    if (q.answerType === 'scale' && answerScale !== undefined && q.scaleMin != null && q.scaleMax != null) {
-      const range = q.scaleMax - q.scaleMin
-      answerNormalized = range > 0 ? (answerScale - q.scaleMin) / range : 0
+    if (q.answerType === 'scale' && answerScale !== undefined) {
+      // Fall back to 1-5 (same defaults the UI uses) when scale bounds aren't set on the question
+      const min = q.scaleMin ?? 1
+      const max = q.scaleMax ?? 5
+      const range = max - min
+      answerNormalized = range > 0 ? (answerScale - min) / range : 0
     } else if (q.answerType === 'boolean') {
       if (answerBoolean === 'yes') answerNormalized = 1
       else if (answerBoolean === 'no') answerNormalized = 0

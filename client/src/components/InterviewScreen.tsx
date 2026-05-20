@@ -3,6 +3,7 @@ import { T, umbrellaColor } from '../lib/theme'
 import { getTodaysInterview, submitInterviewAnswer, completeInterview } from '../lib/api'
 import type { ApiComposedQuestion, ApiInterviewSession } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
+import { useStore } from '../store/useStore'
 
 interface Props {
   navigate: NavigateFn
@@ -160,6 +161,7 @@ function CommentBox({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 export default function InterviewScreen({ navigate }: Props) {
+  const loadUmbrellas = useStore(s => s.loadUmbrellas)
   const [state, setState] = useState<InterviewState>({ phase: 'loading' })
   const [textValue, setTextValue] = useState('')
   const [scaleValue, setScaleValue] = useState<number | null>(null)
@@ -223,6 +225,7 @@ export default function InterviewScreen({ navigate }: Props) {
 
       if (index + 1 >= questions.length) {
         await completeInterview()
+        loadUmbrellas() // refresh analytics scores in background — don't await
         setState({ phase: 'done' })
       } else {
         setState({ phase: 'answering', questions, session, index: index + 1, submitting: false })
