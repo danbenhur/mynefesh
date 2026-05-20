@@ -142,4 +142,41 @@ router.get('/data-counts-public', async (_req, res) => {
   }
 })
 
+// One-shot schema repair — runs the ALTER statements that the migration runner
+// failed to apply, then removes itself from usefulness via a guard flag.
+router.post('/force-schema-public', async (_req, res) => {
+  const pool = getPgPool()
+  if (!pool) {
+    res.status(503).json({ error: 'No database connection' })
+    return
+  }
+  try {
+    await pool.query(`ALTER TABLE umbrella_questions ADD COLUMN IF NOT EXISTS options jsonb`)
+    await pool.query(`ALTER TABLE question_answers ADD COLUMN IF NOT EXISTS answer_options text[]`)
+    await pool.query(`ALTER TABLE question_answers ADD COLUMN IF NOT EXISTS comment text`)
+    // Enum value — use a DO block so it's safe even if multi_select already exists
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_enum
+          WHERE enumlabel = 'multi_select'
+            AND enumtypid = 'answer_type'::regtype
+        ) THEN
+          ALTER TYPE answer_type ADD VALUE 'multi_select';
+        END IF;
+      END $$
+    `)
+
+    // Confirm columns now present
+    const colRes = await pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'umbrella_questions' ORDER BY ordinal_position
+    `)
+    const cols = colRes.rows.map((r: { column_name: string }) => r.column_name)
+    res.json({ ok: true, umbrellaQuestionsColumns: cols })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
 export default router
