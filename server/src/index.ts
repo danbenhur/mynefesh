@@ -22,6 +22,7 @@ import sandboxRouter from './routes/sandbox.js'
 import debugRouter from './routes/debug.js'
 import interviewRouter from './routes/interview.js'
 import analyticsRouter from './routes/analytics.js'
+import { umbrellaResolutionsRouter, resolutionsRouter } from './routes/resolutions.js'
 import { startScheduler } from './lib/scheduler.js'
 import { seedMigrationsIfNeeded } from './lib/migration-seeder.js'
 
@@ -91,6 +92,8 @@ app.use('/api/questions', questionsRouter)
 app.use('/api/sandbox', sandboxRouter)
 app.use('/api/interview', interviewRouter)
 app.use('/api/analytics', analyticsRouter)
+app.use('/api/umbrellas', umbrellaResolutionsRouter)
+app.use('/api/resolutions', resolutionsRouter)
 
 // Run migrations before accepting traffic. Skipped if DATABASE_URL is absent (local dev without DB).
 if (process.env.DATABASE_URL) {

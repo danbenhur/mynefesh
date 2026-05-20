@@ -85,6 +85,13 @@
       "when": 1747353600000,
       "tag": "0011_add_multi_select_enum",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1747440000000,
+      "tag": "0012_resolutions",
+      "breakpoints": true
     }
   ]
 }

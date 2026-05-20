@@ -1,10 +1,11 @@
 import cron from 'node-cron'
 import SunCalc from 'suncalc'
-import { eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { userSettings, whatsappSession } from '../db/schema.js'
+import { userSettings, whatsappSession, resolutions, umbrellaQuestions } from '../db/schema.js'
 import { sendSMS } from './whatsapp.js'
 import { checkinWithLink, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
+import { computeResolutionProgress, todayJerusalem } from './resolutions.js'
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 const JERUSALEM_LAT = 31.7683
@@ -154,6 +155,40 @@ async function tickMorning() {
   }
 }
 
+// Runs once per day at 00:01 Jerusalem time. Completes any active resolutions
+// whose end_date has passed and records the final score.
+async function tickResolutions() {
+  try {
+    const db = getDb()
+    const { hhmm } = jerusalemNow()
+    if (hhmm !== '00:01') return
+
+    const today = todayJerusalem()
+    const expired = await db
+      .select()
+      .from(resolutions)
+      .where(and(eq(resolutions.status, 'active'), lt(resolutions.endDate, today)))
+
+    for (const r of expired) {
+      const [q] = await db
+        .select({ answerType: umbrellaQuestions.answerType })
+        .from(umbrellaQuestions)
+        .where(eq(umbrellaQuestions.id, r.questionId))
+      const progress = await computeResolutionProgress(
+        { questionId: r.questionId, startDate: String(r.startDate), endDate: String(r.endDate), successThreshold: r.successThreshold },
+        q?.answerType ?? 'boolean',
+      )
+      await db
+        .update(resolutions)
+        .set({ status: 'completed', finalScore: progress.percentage, updatedAt: new Date() })
+        .where(eq(resolutions.id, r.id))
+      console.log(`[scheduler] Resolution ${r.id} auto-completed with score ${progress.percentage}%`)
+    }
+  } catch (err) {
+    console.error('[scheduler] tickResolutions error:', err)
+  }
+}
+
 async function tickSandboxReminder() {
   try {
     const settings = await getOrCreateSettings()
@@ -196,6 +231,7 @@ export function startScheduler() {
     await tickCheckin()
     await tickMorning()
     await tickSandboxReminder()
+    await tickResolutions()
   })
 
   console.log('[scheduler] Started (runs every minute)')

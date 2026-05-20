@@ -118,6 +118,20 @@ export const interviewSession = pgTable('interview_session', {
   currentIndex: integer('current_index').notNull().default(0),
 })
 
+export const resolutions = pgTable('resolutions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  umbrellaId: uuid('umbrella_id').notNull().references(() => umbrellas.id, { onDelete: 'cascade' }),
+  questionId: uuid('question_id').notNull().references(() => umbrellaQuestions.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  successThreshold: integer('success_threshold'),
+  status: text('status').notNull().default('active'),
+  finalScore: integer('final_score'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 // No FK — chat is a global log, not per-umbrella (for now)
 export const chatMessages = pgTable('chat_messages', {
   id: uuid('id').defaultRandom().primaryKey(),

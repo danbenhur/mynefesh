@@ -272,3 +272,49 @@ export interface ApiInterviewHistory {
 
 export const getInterviewHistory = (days = 30) =>
   req<ApiInterviewHistory>(`/api/interview/history?days=${days}`)
+
+export interface ApiResolutionProgress {
+  successfulDays: number
+  elapsedDays: number
+  totalDays: number
+  percentage: number
+  currentStreak: number
+  longestStreak: number
+  daysRemaining: number
+}
+
+export interface ApiResolution {
+  id: string
+  umbrellaId: string
+  questionId: string
+  title: string
+  startDate: string
+  endDate: string
+  successThreshold: number | null
+  status: 'active' | 'completed' | 'abandoned'
+  finalScore: number | null
+  createdAt: string
+  progress: ApiResolutionProgress | null
+}
+
+export const listResolutions = (umbrellaId: string) =>
+  req<ApiResolution[]>(`/api/umbrellas/${umbrellaId}/resolutions`)
+
+export const createResolution = (payload: {
+  umbrellaId: string
+  questionId?: string
+  newQuestion?: { text: string; answerType: 'boolean' | 'boolean_partial' | 'scale'; scaleMin?: number; scaleMax?: number }
+  title: string
+  startDate: string
+  endDate: string
+  successThreshold?: number | null
+}) => req<ApiResolution>('/api/resolutions', { method: 'POST', body: JSON.stringify(payload) })
+
+export const updateResolution = (id: string, patch: { title?: string; endDate?: string; status?: 'abandoned' }) =>
+  req<ApiResolution>(`/api/resolutions/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+
+export const getResolutionProgress = (id: string) =>
+  req<ApiResolutionProgress>(`/api/resolutions/${id}/progress`)
+
+export const abandonResolution = (id: string) =>
+  req<ApiResolution>(`/api/resolutions/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'abandoned' }) })
