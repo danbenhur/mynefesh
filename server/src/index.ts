@@ -23,6 +23,7 @@ import debugRouter from './routes/debug.js'
 import interviewRouter from './routes/interview.js'
 import analyticsRouter from './routes/analytics.js'
 import { startScheduler } from './lib/scheduler.js'
+import { seedMigrationsIfNeeded } from './lib/migration-seeder.js'
 
 const app = express()
 const PORT = process.env.PORT ?? 3001
@@ -95,6 +96,7 @@ app.use('/api/analytics', analyticsRouter)
 if (process.env.DATABASE_URL) {
   const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle')
   try {
+    await seedMigrationsIfNeeded(migrationsFolder)
     await migrate(getDb(), { migrationsFolder })
     console.log('Migrations applied')
   } catch (err) {
