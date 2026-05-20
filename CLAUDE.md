@@ -98,18 +98,27 @@ umbrella_questions
   id, umbrella_id → umbrellas (cascade), text,
   cadence (daily|weekly|monthly|annual),
   day_of_week (0-6), day_of_month (1-31), month_of_year (1-12),
-  answer_type (text|scale|boolean|boolean_partial),
-  scale_min, scale_max, position, enabled, created_at, updated_at
+  answer_type (text|scale|boolean|boolean_partial|multi_select),
+  scale_min, scale_max, options (jsonb), position, enabled, created_at, updated_at
 
 question_answers
   id, question_id → umbrella_questions (cascade),
   interview_date (date), answer_text, answer_scale (int),
-  answer_boolean (yes|no|partial), answer_normalized (0.0–1.0),
-  created_at
+  answer_boolean (yes|no|partial), answer_options (text[]),
+  answer_normalized (0.0–1.0), comment (text), created_at
   — UPSERTED per (question_id, interview_date)
 
 interview_session
   id, date (date, unique), started_at, completed_at, current_index
+
+resolutions
+  id (uuid), umbrella_id → umbrellas (cascade),
+  question_id → umbrella_questions (cascade),
+  title (text), start_date (date), end_date (date),
+  success_threshold (int, nullable — min scale value for success; null for boolean),
+  status (text: 'active'|'completed'|'abandoned'), final_score (int, nullable),
+  created_at, updated_at
+  — auto-completed by scheduler at 00:01 when end_date < today
 
 chat_messages
   id, role (user|assistant), content, created_at
@@ -193,6 +202,12 @@ user_sessions          ← managed by connect-pg-simple
 - `GET /` — `?umbrella=:id&days=30`
 - `POST /` — Record a manual health snapshot
 
+### Resolutions (`/api/umbrellas/:id/resolutions`, `/api/resolutions`)
+- `GET /umbrellas/:id/resolutions` — All resolutions for an umbrella; active ones include live computed progress
+- `POST /resolutions` — Create resolution; body: `umbrellaId`, `questionId` OR `newQuestion` object, `title`, `startDate`, `endDate`, `successThreshold` (required for scale, forbidden otherwise)
+- `PATCH /resolutions/:id` — Update `title`, `endDate`, or `status: 'abandoned'` (which also freezes `finalScore`)
+- `GET /resolutions/:id/progress` — Live progress for a single resolution
+
 ---
 
 ## Server — Lib Modules
@@ -214,10 +229,17 @@ Filters enabled questions by calendar cadence against today's Jerusalem date:
 Returns questions with umbrella name and icon attached.
 
 ### `lib/scheduler.ts`
-Cron runs every minute. Three tick functions:
+Cron runs every minute. Four tick functions:
 - `tickCheckin()` — Sends WhatsApp check-in at configured time; skips during Shabbat window (Friday sunset−1h → Saturday sunset+1h, via SunCalc); uses `saturday_checkin_time` if set
 - `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed
 - `tickSandboxReminder()` — Sends once-per-day reminder ~60h before sandbox expiry
+- `tickResolutions()` — At 00:01 Jerusalem, auto-completes active resolutions whose `end_date` has passed; computes final score and sets `status='completed'`
+
+### `lib/resolutions.ts`
+Progress computation for resolutions:
+- `computeResolutionProgress(resolution, questionAnswerType)` → `{ successfulDays, elapsedDays, totalDays, percentage, currentStreak, longestStreak, daysRemaining }`
+- A day is successful if: boolean/boolean_partial → `answer_boolean = 'yes'`; scale → `answer_scale >= success_threshold`
+- `currentStreak` counts backwards from the last answered date
 
 ### `lib/whatsapp.ts`
 Thin wrapper: `sendWhatsApp(to, text)` → `twilio.messages.create()`.
@@ -236,7 +258,7 @@ Passport Google OAuth strategy. Email validated against `ALLOWED_GOOGLE_EMAIL`. 
 Dashboard. Shows: Life Wellness Score ring (computed from umbrella scores), umbrella grid (2-col, each with score + sparkline), AI nudges empty state (real nudges not yet built), "Add umbrella" button, archived count link, sandbox expiry banner.
 
 ### UmbrellaDetail
-Full umbrella view. Shows: 6-week trend sparkline (from analytics), sub-areas list (real child umbrellas only — no mock data), questions editor (add/edit/delete with cadence + answer type), per-question trend charts, archive/delete controls.
+Full umbrella view. Shows: 6-week trend sparkline (from analytics), sub-areas list (real child umbrellas only — no mock data), questions editor (add/edit/delete with cadence + answer type), per-question trend charts, **resolutions section** (active cards with progress bars + streaks, creation form, past resolutions collapsible, detail/abandon modal), archive/delete controls.
 
 ### InterviewScreen
 Daily interview. Loads real questions from `/api/interview/today`. Progress bar, umbrella badge, multiple answer types (text, scale, boolean, boolean_partial). Resumes from `currentIndex` if interrupted. Completion screen in Hebrew.
@@ -331,6 +353,7 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 - **Tasks** — Create, status toggle, priority, delete per umbrella
 - **Archived umbrellas** — Archive, browse, restore flow
 - **Full Hebrew + RTL UI** — All screens localized: login, nav tabs, HomeScreen, ChatScreen, ProfileScreen, UmbrellaDetail, ArchivedScreen; `index.html` has `lang="he" dir="rtl"`
+- **Resolutions** — Time-bound commitments per umbrella with progress tracking, streak computation, auto-complete via scheduler, abandon flow
 
 ---
 
