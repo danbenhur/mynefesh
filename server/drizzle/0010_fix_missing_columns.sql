@@ -1,7 +1,7 @@
--- Re-apply columns from 0009 that never landed (migration was silently skipped or rolled back).
--- All statements are guarded with IF NOT EXISTS so this is safe to run multiple times.
-
-ALTER TYPE "answer_type" ADD VALUE IF NOT EXISTS 'multi_select';
+-- Re-apply ADD COLUMN statements from 0009 that never landed.
+-- ALTER TYPE ADD VALUE for 'multi_select' is handled separately in 0011
+-- (outside a transaction) to avoid PG version compatibility issues.
+-- All statements use IF NOT EXISTS so this is idempotent.
 
 ALTER TABLE "umbrella_questions" ADD COLUMN IF NOT EXISTS "options" jsonb;
 

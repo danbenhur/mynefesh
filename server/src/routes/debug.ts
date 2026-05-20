@@ -120,30 +120,22 @@ router.get('/data-counts-public', async (_req, res) => {
     return
   }
   try {
-    const [umbrellaRes, questionRes, answerRes] = await Promise.all([
+    const [umbrellaRes, questionRes, answerRes, colRes, pgVerRes, migrationsRes] = await Promise.all([
       pool.query(`SELECT id, name, archived_at IS NOT NULL AS archived FROM umbrellas ORDER BY position`),
       pool.query(`SELECT id, umbrella_id, text, cadence, enabled, answer_type FROM umbrella_questions ORDER BY created_at`),
       pool.query(`SELECT COUNT(*)::int AS count FROM question_answers`),
+      pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'umbrella_questions' ORDER BY ordinal_position`),
+      pool.query(`SELECT version()`),
+      pool.query(`SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 15`).catch(() => ({ rows: [] })),
     ])
 
-    // Check which columns exist on umbrella_questions to detect missing migration
-    const colRes = await pool.query(`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'umbrella_questions'
-      ORDER BY ordinal_position
-    `)
-
     res.json({
-      umbrellas: {
-        count: umbrellaRes.rowCount,
-        rows: umbrellaRes.rows,
-      },
-      questions: {
-        count: questionRes.rowCount,
-        rows: questionRes.rows,
-      },
+      umbrellas: { count: umbrellaRes.rowCount, rows: umbrellaRes.rows },
+      questions: { count: questionRes.rowCount, rows: questionRes.rows },
       answerCount: answerRes.rows[0].count,
       umbrellaQuestionsColumns: colRes.rows.map((r: { column_name: string }) => r.column_name),
+      pgVersion: pgVerRes.rows[0].version,
+      appliedMigrations: migrationsRes.rows,
     })
   } catch (err) {
     res.status(500).json({ error: String(err) })
