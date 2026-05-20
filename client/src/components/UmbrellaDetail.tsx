@@ -3,8 +3,8 @@ import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Sparkline from './Sparkline'
 import Icon from './Icon'
-import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend, createUmbrella } from '../lib/api'
-import type { ApiUmbrellaTrendPoint, ApiQuestionTrendPoint } from '../lib/api'
+import { listQuestions, createQuestion, updateQuestion, deleteQuestion, archiveUmbrella, deleteUmbrella, getUmbrellaTrend, getQuestionTrend, createUmbrella, getQuestionMultiTrend } from '../lib/api'
+import type { ApiUmbrellaTrendPoint, ApiQuestionTrendPoint, ApiMultiTrendPoint } from '../lib/api'
 import { useStore } from '../store/useStore'
 import type { Umbrella } from '../types/umbrella'
 import type { Question, Cadence, AnswerType } from '../types/umbrella'
@@ -72,6 +72,7 @@ interface FormState {
   answerType: AnswerType
   scaleMin: number
   scaleMax: number
+  options: string[]
 }
 
 const DEFAULT_FORM: FormState = {
@@ -83,6 +84,7 @@ const DEFAULT_FORM: FormState = {
   answerType: 'text',
   scaleMin: 1,
   scaleMax: 5,
+  options: [],
 }
 
 function questionToForm(q: Question): FormState {
@@ -95,6 +97,7 @@ function questionToForm(q: Question): FormState {
     answerType: q.answerType,
     scaleMin: q.scaleMin ?? 1,
     scaleMax: q.scaleMax ?? 5,
+    options: q.options ?? [],
   }
 }
 
@@ -108,9 +111,75 @@ function formToPayload(f: FormState) {
     answerType: f.answerType,
     scaleMin: f.answerType === 'scale' ? f.scaleMin : null,
     scaleMax: f.answerType === 'scale' ? f.scaleMax : null,
+    options: f.answerType === 'multi_select' ? f.options : null,
     position: 0,
     enabled: true,
   }
+}
+
+function OptionsManager({ options, onChange }: { options: string[]; onChange: (opts: string[]) => void }) {
+  const [draft, setDraft] = useState('')
+
+  function addOption() {
+    const trimmed = draft.trim()
+    if (!trimmed || options.includes(trimmed)) return
+    onChange([...options, trimmed])
+    setDraft('')
+  }
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+        אפשרויות
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+        {options.map((opt, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              flex: 1, fontSize: 13, color: T.charcoal,
+              background: T.sageLight, borderRadius: 8, padding: '6px 10px',
+            }}>
+              {opt}
+            </span>
+            <button
+              onClick={() => onChange(options.filter((_, j) => j !== i))}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 16, color: T.charcoalLight, lineHeight: 1, padding: '0 2px',
+                fontFamily: 'inherit',
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addOption()}
+          placeholder="הוסף אפשרות..."
+          style={{
+            flex: 1, background: T.bg, border: `1px solid ${T.sageMid}`,
+            borderRadius: 8, padding: '6px 10px', fontSize: 13, color: T.charcoal,
+            fontFamily: 'inherit', outline: 'none', direction: 'rtl',
+          }}
+        />
+        <button
+          onClick={addOption}
+          disabled={!draft.trim() || options.includes(draft.trim())}
+          style={{
+            background: T.sage, color: '#fff', border: 'none', borderRadius: 8,
+            padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit', opacity: !draft.trim() || options.includes(draft.trim()) ? 0.5 : 1,
+          }}
+        >
+          הוסף
+        </button>
+      </div>
+    </div>
+  )
 }
 
 interface QuestionFormProps {
@@ -245,6 +314,7 @@ function QuestionForm({ form, onChange, onSave, onCancel, saving }: QuestionForm
           ['scale', 'סולם'],
           ['boolean', 'כן/לא'],
           ['boolean_partial', 'כן/לא/חלקית'],
+          ['multi_select', 'בחירה מרובה'],
         ] as [AnswerType, string][]).map(([t, label]) => (
           <button
             key={t}
@@ -299,18 +369,28 @@ function QuestionForm({ form, onChange, onSave, onCancel, saving }: QuestionForm
         </div>
       )}
 
-      {form.answerType !== 'scale' && <div style={{ marginBottom: 6 }} />}
+      {form.answerType === 'multi_select' && (
+        <OptionsManager
+          options={form.options}
+          onChange={opts => set('options', opts)}
+        />
+      )}
+
+      {form.answerType !== 'scale' && form.answerType !== 'multi_select' && <div style={{ marginBottom: 6 }} />}
 
       {/* Actions */}
+      {form.answerType === 'multi_select' && form.options.length < 2 && (
+        <p style={{ fontSize: 11, color: T.red, marginBottom: 8 }}>נדרשות לפחות 2 אפשרויות</p>
+      )}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={onSave}
-          disabled={!form.text.trim() || saving || (form.answerType === 'scale' && form.scaleMin >= form.scaleMax)}
+          disabled={!form.text.trim() || saving || (form.answerType === 'scale' && form.scaleMin >= form.scaleMax) || (form.answerType === 'multi_select' && form.options.length < 2)}
           style={{
             flex: 1, background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
             color: '#fff', borderRadius: 10, border: 'none', padding: '9px 0',
             fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-            opacity: !form.text.trim() || saving || (form.answerType === 'scale' && form.scaleMin >= form.scaleMax) ? 0.5 : 1,
+            opacity: !form.text.trim() || saving || (form.answerType === 'scale' && form.scaleMin >= form.scaleMax) || (form.answerType === 'multi_select' && form.options.length < 2) ? 0.5 : 1,
           }}
         >
           {saving ? 'שומר…' : 'שמור'}
@@ -365,6 +445,7 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   // Analytics trends
   const [umbrellaTrend, setUmbrellaTrend] = useState<ApiUmbrellaTrendPoint[]>([])
   const [questionTrends, setQuestionTrends] = useState<Record<string, ApiQuestionTrendPoint[]>>({})
+  const [multiTrends, setMultiTrends] = useState<Record<string, ApiMultiTrendPoint[]>>({})
 
   useEffect(() => {
     setLoadingQ(true)
@@ -390,6 +471,17 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
       })
       setQuestionTrends(map)
     })
+    const multiQs = questions.filter(q => q.answerType === 'multi_select')
+    if (multiQs.length > 0) {
+      Promise.allSettled(multiQs.map(q => getQuestionMultiTrend(q.id, 90))).then(results => {
+        const map: Record<string, ApiMultiTrendPoint[]> = {}
+        multiQs.forEach((q, i) => {
+          const r = results[i]
+          map[q.id] = r.status === 'fulfilled' ? r.value : []
+        })
+        setMultiTrends(map)
+      })
+    }
   }, [questions])
 
   async function handleAdd() {
@@ -787,7 +879,11 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                                 ? `${q.scaleMin ?? 1}-${q.scaleMax ?? 5}`
                                 : q.answerType === 'boolean'
                                   ? 'כן/לא'
-                                  : 'כן/לא/חלקית'}
+                                  : q.answerType === 'boolean_partial'
+                                    ? 'כן/לא/חלקית'
+                                    : q.answerType === 'multi_select'
+                                      ? `בחירה מרובה (${q.options?.length ?? 0})`
+                                      : q.answerType}
                             </span>
                           )}
                         </div>
@@ -854,13 +950,14 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
 
         {/* ── Per-question trends ───────────────────────────────── */}
         {(() => {
-          const questionsWithData = questions.filter(q => (questionTrends[q.id]?.length ?? 0) > 0)
-          if (questionsWithData.length === 0) return null
+          const regularQs = questions.filter(q => q.answerType !== 'multi_select' && (questionTrends[q.id]?.length ?? 0) > 0)
+          const multiQs = questions.filter(q => q.answerType === 'multi_select' && (multiTrends[q.id]?.some(p => p.total > 0)))
+          if (regularQs.length === 0 && multiQs.length === 0) return null
           return (
             <div dir="rtl" style={{ marginTop: 24 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>מגמות לפי שאלה</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {questionsWithData.map(q => {
+                {regularQs.map(q => {
                   const pts = questionTrends[q.id] ?? []
                   const latest = pts[pts.length - 1]
                   const sparkData = pts
@@ -898,6 +995,41 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                       }}>
                         {latestDisplay}
                       </span>
+                    </div>
+                  )
+                })}
+                {multiQs.map(q => {
+                  const pts = multiTrends[q.id] ?? []
+                  const maxTotal = Math.max(...pts.map(p => p.total), 1)
+                  return (
+                    <div
+                      key={q.id}
+                      style={{
+                        background: T.bgCard, borderRadius: 14, padding: '10px 14px',
+                        boxShadow: '0 1px 4px rgba(44,44,42,0.05)',
+                      }}
+                    >
+                      <p style={{ fontSize: 12, color: T.charcoal, lineHeight: 1.4, marginBottom: 8 }}>{q.text}</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {pts.map(p => (
+                          <div key={p.option} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 11, color: T.charcoalLight, minWidth: 80, textAlign: 'right' }}>
+                              {p.option}
+                            </span>
+                            <div style={{ flex: 1, height: 10, background: T.sageLight, borderRadius: 5, overflow: 'hidden' }}>
+                              <div style={{
+                                height: '100%', borderRadius: 5,
+                                width: `${Math.round((p.total / maxTotal) * 100)}%`,
+                                background: color,
+                                transition: 'width 0.4s ease',
+                              }} />
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 20, textAlign: 'center' }}>
+                              {p.total}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )
                 })}

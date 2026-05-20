@@ -79,11 +79,93 @@ function BooleanInput({ type, value, onSelect }: {
   )
 }
 
+function MultiSelectInput({ options, selected, onToggle }: {
+  options: string[]
+  selected: string[]
+  onToggle: (opt: string) => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {options.map(opt => {
+        const isOn = selected.includes(opt)
+        return (
+          <button
+            key={opt}
+            onClick={() => onToggle(opt)}
+            style={{
+              width: '100%', padding: '14px 16px',
+              borderRadius: 14, border: `2px solid ${isOn ? T.sage : T.sageMid}`,
+              background: isOn ? `${T.sage}18` : T.bgCard,
+              display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right',
+              transition: 'all 0.15s',
+            }}
+          >
+            <span style={{
+              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+              border: `2px solid ${isOn ? T.sage : T.sageMid}`,
+              background: isOn ? T.sage : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, color: '#fff',
+              transition: 'all 0.15s',
+            }}>
+              {isOn ? '✓' : ''}
+            </span>
+            <span style={{ fontSize: 15, fontWeight: isOn ? 600 : 400, color: T.charcoal }}>
+              {opt}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function CommentBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ marginTop: 16 }}>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 13, color: T.charcoalLight, fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 6,
+            margin: '0 auto',
+          }}
+        >
+          <span>💬</span>
+          <span>הוסף הערה</span>
+        </button>
+      ) : (
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="הערה אופציונלית..."
+          rows={3}
+          autoFocus
+          dir="rtl"
+          style={{
+            width: '100%', background: T.bgCard, borderRadius: 12,
+            border: `1px solid ${T.sageMid}`, padding: '10px 12px',
+            fontSize: 13, color: T.charcoal, fontFamily: 'inherit',
+            outline: 'none', resize: 'none', boxSizing: 'border-box',
+            lineHeight: 1.6, direction: 'rtl',
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function InterviewScreen({ navigate }: Props) {
   const [state, setState] = useState<InterviewState>({ phase: 'loading' })
   const [textValue, setTextValue] = useState('')
   const [scaleValue, setScaleValue] = useState<number | null>(null)
   const [boolValue, setBoolValue] = useState<'yes' | 'no' | 'partial' | null>(null)
+  const [multiValue, setMultiValue] = useState<string[]>([])
+  const [commentValue, setCommentValue] = useState('')
 
   useEffect(() => {
     getTodaysInterview()
@@ -108,18 +190,30 @@ export default function InterviewScreen({ navigate }: Props) {
     setTextValue('')
     setScaleValue(null)
     setBoolValue(null)
+    setMultiValue([])
+    setCommentValue('')
   }, [state.phase === 'answering' ? (state as Extract<InterviewState, { phase: 'answering' }>).index : null])
+
+  function toggleMulti(opt: string) {
+    setMultiValue(prev =>
+      prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]
+    )
+  }
 
   async function handleNext() {
     if (state.phase !== 'answering') return
     const { questions, session, index } = state
 
     const q = questions[index]
-    const payload: Parameters<typeof submitInterviewAnswer>[0] = { questionId: q.id }
+    const payload: Parameters<typeof submitInterviewAnswer>[0] = {
+      questionId: q.id,
+      comment: commentValue.trim() || null,
+    }
 
     if (q.answerType === 'text') payload.answerText = textValue || ''
     else if (q.answerType === 'scale' && scaleValue !== null) payload.answerScale = scaleValue
     else if ((q.answerType === 'boolean' || q.answerType === 'boolean_partial') && boolValue) payload.answerBoolean = boolValue
+    else if (q.answerType === 'multi_select') payload.answerOptions = multiValue
     else return // should not reach here — button is disabled
 
     setState({ ...state, submitting: true })
@@ -144,6 +238,7 @@ export default function InterviewScreen({ navigate }: Props) {
     if (q.answerType === 'text') return true // optional text
     if (q.answerType === 'scale') return scaleValue !== null
     if (q.answerType === 'boolean' || q.answerType === 'boolean_partial') return boolValue !== null
+    if (q.answerType === 'multi_select') return true // zero selections is valid
     return false
   }
 
@@ -334,6 +429,17 @@ export default function InterviewScreen({ navigate }: Props) {
             onSelect={setBoolValue}
           />
         )}
+
+        {q.answerType === 'multi_select' && (
+          <MultiSelectInput
+            options={q.options ?? []}
+            selected={multiValue}
+            onToggle={toggleMulti}
+          />
+        )}
+
+        {/* Comment box — shown below every answer type */}
+        <CommentBox value={commentValue} onChange={setCommentValue} />
 
         {/* Next button */}
         <button

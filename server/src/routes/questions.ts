@@ -18,18 +18,24 @@ function qShape(q: QRow) {
     answerType: q.answerType,
     scaleMin: q.scaleMin,
     scaleMax: q.scaleMax,
+    options: (q.options as string[] | null) ?? null,
     position: q.position,
     enabled: q.enabled,
   }
 }
 
-const ANSWER_TYPES = ['text', 'scale', 'boolean', 'boolean_partial'] as const
+const ANSWER_TYPES = ['text', 'scale', 'boolean', 'boolean_partial', 'multi_select'] as const
 
 const scaleCheck = (data: { answerType?: string; scaleMin?: number | null; scaleMax?: number | null }) => {
   if (data.answerType === 'scale') {
     if (data.scaleMin == null || data.scaleMax == null) return false
     return data.scaleMin < data.scaleMax
   }
+  return true
+}
+
+const multiSelectCheck = (data: { answerType?: string; options?: string[] | null }) => {
+  if (data.answerType === 'multi_select') return (data.options?.length ?? 0) >= 2
   return true
 }
 
@@ -42,11 +48,15 @@ const CreateSchema = z.object({
   answerType: z.enum(ANSWER_TYPES).default('text'),
   scaleMin: z.number().int().nullable().optional(),
   scaleMax: z.number().int().nullable().optional(),
+  options: z.array(z.string().min(1)).min(2).max(20).nullable().optional(),
   position: z.number().int().default(0),
   enabled: z.boolean().default(true),
 }).refine(scaleCheck, {
   message: 'scale requires scaleMin and scaleMax with scaleMin < scaleMax',
   path: ['scaleMin'],
+}).refine(multiSelectCheck, {
+  message: 'multi_select requires at least 2 options',
+  path: ['options'],
 })
 
 const PatchSchema = z.object({
@@ -58,11 +68,15 @@ const PatchSchema = z.object({
   answerType: z.enum(ANSWER_TYPES).optional(),
   scaleMin: z.number().int().nullable().optional(),
   scaleMax: z.number().int().nullable().optional(),
+  options: z.array(z.string().min(1)).min(2).max(20).nullable().optional(),
   position: z.number().int().optional(),
   enabled: z.boolean().optional(),
 }).strict().refine(scaleCheck, {
   message: 'scale requires scaleMin < scaleMax',
   path: ['scaleMin'],
+}).refine(multiSelectCheck, {
+  message: 'multi_select requires at least 2 options',
+  path: ['options'],
 })
 
 // Mounted at /api/umbrellas — handles /:umbrellaId/questions

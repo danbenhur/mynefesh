@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { and, desc, eq, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { interviewSession, questionAnswers, umbrellaQuestions } from '../db/schema.js'
 import { composeTodaysQuestions } from '../lib/interview-composer.js'
@@ -66,9 +66,12 @@ const AnswerSchema = z.object({
   answerText: z.string().optional(),
   answerScale: z.number().int().optional(),
   answerBoolean: z.enum(['yes', 'no', 'partial']).optional(),
-}).refine(d => d.answerText !== undefined || d.answerScale !== undefined || d.answerBoolean !== undefined, {
-  message: 'At least one answer field required',
-})
+  answerOptions: z.array(z.string()).optional(),
+  comment: z.string().max(2000).nullable().optional(),
+}).refine(
+  d => d.answerText !== undefined || d.answerScale !== undefined || d.answerBoolean !== undefined || d.answerOptions !== undefined,
+  { message: 'At least one answer field required' },
+)
 
 // POST /api/interview/answer
 router.post('/answer', async (req, res) => {
@@ -81,9 +84,9 @@ router.post('/answer', async (req, res) => {
   try {
     const db = getDb()
     const today = jerusalemDate(new Date())
-    const { questionId, answerText, answerScale, answerBoolean } = parse.data
+    const { questionId, answerText, answerScale, answerBoolean, answerOptions, comment } = parse.data
 
-    // Load question to compute normalized value
+    // Load question to compute normalized value and validate multi_select options
     const [q] = await db
       .select()
       .from(umbrellaQuestions)
@@ -92,6 +95,20 @@ router.post('/answer', async (req, res) => {
     if (!q) {
       res.status(404).json({ error: 'Question not found' })
       return
+    }
+
+    // Validate multi_select options
+    if (q.answerType === 'multi_select') {
+      if (!answerOptions) {
+        res.status(400).json({ error: 'answerOptions required for multi_select questions' })
+        return
+      }
+      const validOptions = (q.options as string[] | null) ?? []
+      const invalid = answerOptions.filter(o => !validOptions.includes(o))
+      if (invalid.length > 0) {
+        res.status(400).json({ error: `Invalid options: ${invalid.join(', ')}` })
+        return
+      }
     }
 
     let answerNormalized: number | null = null
@@ -105,6 +122,9 @@ router.post('/answer', async (req, res) => {
       if (answerBoolean === 'yes') answerNormalized = 1
       else if (answerBoolean === 'partial') answerNormalized = 0.5
       else if (answerBoolean === 'no') answerNormalized = 0
+    } else if (q.answerType === 'multi_select' && answerOptions) {
+      const totalOptions = ((q.options as string[] | null) ?? []).length
+      answerNormalized = totalOptions > 0 ? answerOptions.length / totalOptions : 0
     }
 
     // Upsert answer (one answer per question per interview date)
@@ -117,14 +137,14 @@ router.post('/answer', async (req, res) => {
     if (existing[0]) {
       const updated = await db
         .update(questionAnswers)
-        .set({ answerText, answerScale, answerBoolean, answerNormalized })
+        .set({ answerText, answerScale, answerBoolean, answerOptions, answerNormalized, comment: comment ?? null })
         .where(eq(questionAnswers.id, existing[0].id))
         .returning()
       answer = updated[0]
     } else {
       const inserted = await db
         .insert(questionAnswers)
-        .values({ questionId, interviewDate: today, answerText, answerScale, answerBoolean, answerNormalized })
+        .values({ questionId, interviewDate: today, answerText, answerScale, answerBoolean, answerOptions, answerNormalized, comment: comment ?? null })
         .returning()
       answer = inserted[0]
     }
@@ -223,7 +243,9 @@ router.get('/history', async (req, res) => {
         answerText: a.answerText,
         answerScale: a.answerScale,
         answerBoolean: a.answerBoolean,
+        answerOptions: a.answerOptions,
         answerNormalized: a.answerNormalized,
+        comment: a.comment,
       })),
     })
   } catch (err) {

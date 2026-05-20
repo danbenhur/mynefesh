@@ -165,9 +165,10 @@ export interface ApiQuestion {
   dayOfWeek: number | null
   dayOfMonth: number | null
   monthOfYear: number | null
-  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial'
+  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial' | 'multi_select'
   scaleMin: number | null
   scaleMax: number | null
+  options: string[] | null
   position: number
   enabled: boolean
 }
@@ -207,9 +208,10 @@ export interface ApiComposedQuestion {
   umbrellaColor: string | null
   text: string
   cadence: 'daily' | 'weekly' | 'monthly' | 'annual'
-  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial'
+  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial' | 'multi_select'
   scaleMin: number | null
   scaleMax: number | null
+  options: string[] | null
   position: number
 }
 
@@ -234,11 +236,21 @@ export const submitInterviewAnswer = (payload: {
   answerText?: string
   answerScale?: number
   answerBoolean?: 'yes' | 'no' | 'partial'
+  answerOptions?: string[]
+  comment?: string | null
 }) =>
   req<{ id: string; questionId: string; interviewDate: string; answerNormalized: number | null }>(
     '/api/interview/answer',
     { method: 'POST', body: JSON.stringify(payload) }
   )
+
+export interface ApiMultiTrendPoint {
+  option: string
+  total: number
+}
+
+export const getQuestionMultiTrend = (questionId: string, days = 90) =>
+  req<ApiMultiTrendPoint[]>(`/api/analytics/questions/${questionId}/multi-trend?days=${days}`)
 
 export const completeInterview = () =>
   req<{ id: string; date: string; completedAt: string }>('/api/interview/complete', { method: 'POST' })

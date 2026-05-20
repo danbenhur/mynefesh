@@ -1,9 +1,12 @@
 import { Router } from 'express'
+import { and, eq, gte } from 'drizzle-orm'
 import {
   getAllUmbrellaHealthScores,
   getUmbrellaDailyTrend,
   getQuestionDailyTrend,
 } from '../lib/analytics.js'
+import { getDb } from '../db/index.js'
+import { questionAnswers, umbrellaQuestions } from '../db/schema.js'
 
 const router = Router()
 
@@ -40,6 +43,49 @@ router.get('/questions/:id/trend', async (req, res) => {
   } catch (err) {
     console.error('GET /api/analytics/questions/:id/trend:', err)
     res.status(500).json({ error: 'Failed to compute question trend' })
+  }
+})
+
+// GET /api/analytics/questions/:id/multi-trend?days=90
+// Returns per-option total selection counts for a multi_select question.
+router.get('/questions/:id/multi-trend', async (req, res) => {
+  try {
+    const db = getDb()
+    const days = Math.min(parseInt(String(req.query.days ?? '90'), 10) || 90, 365)
+    const since = new Date()
+    since.setDate(since.getDate() - days)
+    const sinceStr = since.toISOString().slice(0, 10)
+
+    const [q] = await db
+      .select({ options: umbrellaQuestions.options })
+      .from(umbrellaQuestions)
+      .where(eq(umbrellaQuestions.id, req.params.id))
+
+    if (!q) { res.status(404).json({ error: 'Question not found' }); return }
+
+    const options = (q.options as string[] | null) ?? []
+    if (options.length === 0) { res.json([]); return }
+
+    const rows = await db
+      .select({ answerOptions: questionAnswers.answerOptions })
+      .from(questionAnswers)
+      .where(and(
+        eq(questionAnswers.questionId, req.params.id),
+        gte(questionAnswers.interviewDate, sinceStr),
+      ))
+
+    const counts: Record<string, number> = {}
+    for (const row of rows) {
+      if (!row.answerOptions) continue
+      for (const opt of row.answerOptions) {
+        counts[opt] = (counts[opt] ?? 0) + 1
+      }
+    }
+
+    res.json(options.map(option => ({ option, total: counts[option] ?? 0 })))
+  } catch (err) {
+    console.error('GET /api/analytics/questions/:id/multi-trend:', err)
+    res.status(500).json({ error: 'Failed to compute multi-select trend' })
   }
 })
 

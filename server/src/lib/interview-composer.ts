@@ -10,9 +10,10 @@ export interface ComposedQuestion {
   umbrellaColor: string | null
   text: string
   cadence: 'daily' | 'weekly' | 'monthly' | 'annual'
-  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial'
+  answerType: 'text' | 'scale' | 'boolean' | 'boolean_partial' | 'multi_select'
   scaleMin: number | null
   scaleMax: number | null
+  options: string[] | null
   position: number
 }
 
@@ -83,6 +84,7 @@ export async function composeTodaysQuestions(date: Date): Promise<ComposedQuesti
     answerType: q.answerType,
     scaleMin: q.scaleMin,
     scaleMax: q.scaleMax,
+    options: (q.options as string[] | null) ?? null,
     position: q.position,
   }))
 }
