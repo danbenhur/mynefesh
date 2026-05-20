@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { desc, eq } from 'drizzle-orm'
-import { getDb } from '../db/index.js'
+import { getDb, getPgPool } from '../db/index.js'
 import { whatsappSession, userSettings } from '../db/schema.js'
 
 const router = Router()
@@ -106,6 +106,45 @@ router.post('/reset-today-public', async (_req, res) => {
     }
 
     res.json({ ok: true, today, before, after })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// Public — raw SQL counts to diagnose interview "no questions" bug
+// Uses pool directly to avoid Drizzle schema column mapping (options col may not exist yet)
+router.get('/data-counts-public', async (_req, res) => {
+  const pool = getPgPool()
+  if (!pool) {
+    res.status(503).json({ error: 'No database connection' })
+    return
+  }
+  try {
+    const [umbrellaRes, questionRes, answerRes] = await Promise.all([
+      pool.query(`SELECT id, name, archived_at IS NOT NULL AS archived FROM umbrellas ORDER BY position`),
+      pool.query(`SELECT id, umbrella_id, text, cadence, enabled, answer_type FROM umbrella_questions ORDER BY created_at`),
+      pool.query(`SELECT COUNT(*)::int AS count FROM question_answers`),
+    ])
+
+    // Check which columns exist on umbrella_questions to detect missing migration
+    const colRes = await pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'umbrella_questions'
+      ORDER BY ordinal_position
+    `)
+
+    res.json({
+      umbrellas: {
+        count: umbrellaRes.rowCount,
+        rows: umbrellaRes.rows,
+      },
+      questions: {
+        count: questionRes.rowCount,
+        rows: questionRes.rows,
+      },
+      answerCount: answerRes.rows[0].count,
+      umbrellaQuestionsColumns: colRes.rows.map((r: { column_name: string }) => r.column_name),
+    })
   } catch (err) {
     res.status(500).json({ error: String(err) })
   }
