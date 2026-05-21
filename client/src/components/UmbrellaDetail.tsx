@@ -470,6 +470,8 @@ function fmtDate(dateStr: string): string {
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+const EMOJI_OPTIONS = ['🏠','👨‍👩‍👧‍👦','💰','🧒','✨','💪','📚','🎵','🌍','❤️','🕍','💼','🎯','🔥','⚡','🌟']
+
 function flattenWithDepth(list: Umbrella[], depth = 0): Array<{ u: Umbrella; depth: number }> {
   return list.flatMap(u => [{ u, depth }, ...flattenWithDepth(u.children, depth + 1)])
 }
@@ -523,6 +525,12 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [abandoningR, setAbandoningR] = useState(false)
   const [pastExpanded, setPastExpanded] = useState(false)
+
+  // Header inline-edit state
+  const [editingHeader, setEditingHeader] = useState(false)
+  const [headerNameInput, setHeaderNameInput] = useState('')
+  const [headerIconInput, setHeaderIconInput] = useState('')
+  const [savingHeader, setSavingHeader] = useState(false)
 
   // Move-under-parent state
   const [showMoveModal, setShowMoveModal] = useState(false)
@@ -685,6 +693,20 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
     }
   }
 
+  async function handleSaveHeader() {
+    if (!headerNameInput.trim()) return
+    setSavingHeader(true)
+    try {
+      await updateUmbrella(umbrella.id, { name: headerNameInput.trim(), icon: headerIconInput })
+      await loadUmbrellas()
+      setEditingHeader(false)
+    } catch (err) {
+      console.error('handleSaveHeader:', err)
+    } finally {
+      setSavingHeader(false)
+    }
+  }
+
   async function handleArchive() {
     setArchiving(true)
     try {
@@ -744,37 +766,112 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 14,
-              background: color + '22',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0,
-            }}>
-              {umbrella.icon}
-            </div>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1.2, marginBottom: 2 }}>
-                {umbrella.name}
-              </h1>
-              <p style={{ fontSize: 12, color: T.charcoalLight }}>
-                ציון בריאות:{' '}
-                <span style={{ color, fontWeight: 700 }}>
+            {editingHeader ? (
+              <div style={{ flex: 1 }}>
+                {/* Emoji picker */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                  {EMOJI_OPTIONS.map(icon => (
+                    <button
+                      key={icon}
+                      onClick={() => setHeaderIconInput(icon)}
+                      style={{
+                        width: 34, height: 34, fontSize: 18, borderRadius: 10, border: 'none',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                        background: headerIconInput === icon ? T.sage : T.sageLight,
+                        outline: headerIconInput === icon ? `2px solid ${T.sage}` : 'none',
+                      }}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+                {/* Name input */}
+                <input
+                  value={headerNameInput}
+                  onChange={e => setHeaderNameInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveHeader(); if (e.key === 'Escape') setEditingHeader(false) }}
+                  autoFocus
+                  style={{
+                    width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
+                    borderRadius: 10, padding: '8px 12px', fontSize: 18, fontWeight: 700,
+                    color: T.charcoal, fontFamily: 'inherit', outline: 'none',
+                    boxSizing: 'border-box', marginBottom: 10, direction: 'rtl',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleSaveHeader}
+                    disabled={!headerNameInput.trim() || savingHeader}
+                    style={{
+                      flex: 1, background: T.sage, color: '#fff', borderRadius: 10, border: 'none',
+                      padding: '7px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      fontFamily: 'inherit', opacity: !headerNameInput.trim() || savingHeader ? 0.5 : 1,
+                    }}
+                  >
+                    {savingHeader ? 'שומר…' : 'שמור'}
+                  </button>
+                  <button
+                    onClick={() => setEditingHeader(false)}
+                    style={{
+                      flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10,
+                      border: 'none', padding: '7px 0', fontSize: 13, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 14,
+                  background: color + '22',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0,
+                }}>
+                  {umbrella.icon}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <h1 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1.2 }}>
+                      {umbrella.name}
+                    </h1>
+                    <button
+                      onClick={() => { setHeaderNameInput(umbrella.name); setHeaderIconInput(umbrella.icon); setEditingHeader(true) }}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: T.charcoalLight, padding: '2px 4px', lineHeight: 1,
+                        fontSize: 15, fontFamily: 'inherit', flexShrink: 0,
+                      }}
+                      title="ערוך שם ואייקון"
+                    >
+                      ✎
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 12, color: T.charcoalLight }}>
+                    ציון בריאות:{' '}
+                    <span style={{ color, fontWeight: 700 }}>
+                      {umbrella.computedHealthScore ?? '—'}
+                    </span>
+                    {umbrella.computedHealthScore !== null && '/100'}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+          {!editingHeader && (
+            <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
+              <Ring score={umbrella.computedHealthScore ?? 0} size={56} stroke={5} color={color} animate={false} />
+              <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color }}>
                   {umbrella.computedHealthScore ?? '—'}
                 </span>
-                {umbrella.computedHealthScore !== null && '/100'}
-              </p>
+              </div>
             </div>
-          </div>
-          <div style={{ position: 'relative', width: 56, height: 56, flexShrink: 0 }}>
-            <Ring score={umbrella.computedHealthScore ?? 0} size={56} stroke={5} color={color} animate={false} />
-            <div style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color }}>
-                {umbrella.computedHealthScore ?? '—'}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
