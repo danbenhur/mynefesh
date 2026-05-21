@@ -168,7 +168,7 @@ user_sessions          ← managed by connect-pg-simple
 ### Interview (`/api/interview`)
 - `GET /today` — Compose today's questions by cadence (respects Jerusalem date) + load/create session. Returns `{ questions: ApiComposedQuestion[], session: ApiInterviewSession }`.
 - `POST /answer` — Submit one answer; normalizes to 0.0–1.0; upserts into `question_answers`
-- `POST /complete` — Set `completed_at` on today's session
+- `POST /complete` — Set `completed_at` on today's session; also syncs today's `whatsapp_session` state to `'completed'` (keeps trackers in sync)
 - `GET /history` — `?days=30`; past sessions + answers
 
 ### Questions (`/api/umbrellas/:id/questions`, `/api/questions`)
@@ -231,7 +231,7 @@ Returns questions with umbrella name and icon attached.
 ### `lib/scheduler.ts`
 Cron runs every minute. Four tick functions:
 - `tickCheckin()` — Sends WhatsApp check-in at configured time; skips during Shabbat window (Friday sunset−1h → Saturday sunset+1h, via SunCalc); uses `saturday_checkin_time` if set
-- `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed
+- `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed; checks `interview_session.completed_at` first (authoritative) then falls back to `whatsapp_session.state`
 - `tickSandboxReminder()` — Sends once-per-day reminder ~60h before sandbox expiry
 - `tickResolutions()` — At 00:01 Jerusalem, auto-completes active resolutions whose `end_date` has passed; computes final score and sets `status='completed'`
 
@@ -258,7 +258,7 @@ Passport Google OAuth strategy. Email validated against `ALLOWED_GOOGLE_EMAIL`. 
 Dashboard. Shows: Life Wellness Score ring (computed from umbrella scores), umbrella grid (2-col, each with score + sparkline), AI nudges empty state (real nudges not yet built), "Add umbrella" button, archived count link, sandbox expiry banner.
 
 ### UmbrellaDetail
-Full umbrella view. Shows: 6-week trend sparkline (from analytics), sub-areas list (real child umbrellas only — no mock data), questions editor (add/edit/delete with cadence + answer type), per-question trend charts, **resolutions section** (active cards with progress bars + streaks, creation form, past resolutions collapsible, detail/abandon modal), archive/delete controls.
+Full umbrella view. Shows: 6-week trend sparkline (from analytics), sub-areas list (real child umbrellas only — no mock data), questions editor (add/edit/delete with cadence + answer type), per-question trend charts, **resolutions section** (active cards with progress bars + streaks, creation form, past resolutions collapsible, detail/abandon modal), archive/delete controls. Header name and icon are **editable inline** — pencil button opens emoji picker + name input; saves via PATCH and refreshes the store.
 
 ### InterviewScreen
 Daily interview. Loads real questions from `/api/interview/today`. Progress bar, umbrella badge, multiple answer types (text, scale, boolean, boolean_partial). Resumes from `currentIndex` if interrupted. Completion screen in Hebrew.
