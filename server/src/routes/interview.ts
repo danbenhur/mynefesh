@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { interviewSession, questionAnswers, umbrellaQuestions } from '../db/schema.js'
+import { interviewSession, questionAnswers, umbrellaQuestions, whatsappSession } from '../db/schema.js'
 import { composeTodaysQuestions } from '../lib/interview-composer.js'
 
 const router = Router()
@@ -198,6 +198,18 @@ router.post('/complete', async (_req, res) => {
       .set({ completedAt: new Date() })
       .where(eq(interviewSession.id, rows[0].id))
       .returning()
+
+    // Keep whatsapp_session in sync so morning-skip logic has a consistent view
+    const wsRows = await db
+      .select()
+      .from(whatsappSession)
+      .where(eq(whatsappSession.date, today))
+    if (wsRows[0] && (wsRows[0].state === 'pending' || wsRows[0].state === 'snoozed')) {
+      await db
+        .update(whatsappSession)
+        .set({ state: 'completed' })
+        .where(eq(whatsappSession.id, wsRows[0].id))
+    }
 
     res.json({
       id: updated.id,

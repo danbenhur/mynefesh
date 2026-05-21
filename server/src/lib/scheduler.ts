@@ -2,7 +2,7 @@ import cron from 'node-cron'
 import SunCalc from 'suncalc'
 import { and, eq, lt } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { userSettings, whatsappSession, resolutions, umbrellaQuestions } from '../db/schema.js'
+import { userSettings, whatsappSession, resolutions, umbrellaQuestions, interviewSession } from '../db/schema.js'
 import { sendSMS } from './whatsapp.js'
 import { checkinWithLink, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
 import { computeResolutionProgress, todayJerusalem } from './resolutions.js'
@@ -140,6 +140,18 @@ async function tickMorning() {
 
     const prevDate = yesterday(date)
     const db = getDb()
+
+    // interview_session is the authoritative signal — if completed_at is set, no skip needed
+    const interviewRows = await db
+      .select()
+      .from(interviewSession)
+      .where(eq(interviewSession.date, prevDate))
+    if (interviewRows[0]?.completedAt) {
+      console.log('[scheduler] tickMorning: yesterday interview completed, skip morning reminder')
+      return
+    }
+
+    // Fall back to whatsapp_session state as secondary guard
     const rows = await db
       .select()
       .from(whatsappSession)
