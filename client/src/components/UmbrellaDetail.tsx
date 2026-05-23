@@ -510,7 +510,6 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [creatingChild, setCreatingChild] = useState(false)
 
   // Archive / delete state
-  const [archiving, setArchiving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -536,6 +535,9 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   const [showMoveModal, setShowMoveModal] = useState(false)
   const [moveTargetId, setMoveTargetId] = useState<string | null | undefined>(undefined)
   const [moving, setMoving] = useState(false)
+
+  // Kebab menu state
+  const [showKebab, setShowKebab] = useState(false)
 
   // Analytics trends
   const [umbrellaTrend, setUmbrellaTrend] = useState<ApiUmbrellaTrendPoint[]>([])
@@ -708,14 +710,13 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
   }
 
   async function handleArchive() {
-    setArchiving(true)
     try {
       await archiveUmbrella(umbrella.id)
       await loadUmbrellas()
       setToast('המטרייה אורכבה')
       setTimeout(() => { goBack() }, 1200)
     } catch {
-      setArchiving(false)
+      // archive failed silently — kebab already closed
     }
   }
 
@@ -749,20 +750,34 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
     <div dir="rtl" style={{ minHeight: '100%', background: T.bg, paddingBottom: 100 }}>
       {/* Header */}
       <div style={{ padding: '60px 20px 20px', background: T.bgCard, boxShadow: '0 1px 0 rgba(44,44,42,0.06)' }}>
-        <button
-          onClick={goBack}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-            color: T.charcoalLight, fontSize: 13, marginBottom: 16, padding: 0,
-            fontFamily: 'inherit',
-          }}
-        >
-          <span style={{ transform: 'scaleX(-1)', display: 'inline-flex' }}>
-            <Icon name="back" size={16} color={T.charcoalLight} />
-          </span>
-          חזור
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <button
+            onClick={goBack}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              color: T.charcoalLight, fontSize: 13, padding: 0,
+              fontFamily: 'inherit',
+            }}
+          >
+            <span style={{ transform: 'scaleX(-1)', display: 'inline-flex' }}>
+              <Icon name="back" size={16} color={T.charcoalLight} />
+            </span>
+            חזור
+          </button>
+          {!editingHeader && (
+            <button
+              onClick={() => setShowKebab(true)}
+              aria-label="תפריט"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Icon name="kebab" size={22} color={T.charcoalLight} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -832,21 +847,10 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
                   {umbrella.icon}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <div style={{ marginBottom: 2 }}>
                     <h1 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1.2 }}>
                       {umbrella.name}
                     </h1>
-                    <button
-                      onClick={() => { setHeaderNameInput(umbrella.name); setHeaderIconInput(umbrella.icon); setEditingHeader(true) }}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: T.charcoalLight, padding: '2px 4px', lineHeight: 1,
-                        fontSize: 15, fontFamily: 'inherit', flexShrink: 0,
-                      }}
-                      title="ערוך שם ואייקון"
-                    >
-                      ✎
-                    </button>
                   </div>
                   <p style={{ fontSize: 12, color: T.charcoalLight }}>
                     ציון בריאות:{' '}
@@ -1527,81 +1531,6 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
           )
         })()}
 
-        {/* ── Archive / Delete section ──────────────────────────── */}
-        <div dir="rtl" style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid rgba(44,44,42,0.08)` }}>
-          {confirmDelete ? (
-            <div style={{
-              background: '#fff5f5', border: `1px solid ${T.red}33`,
-              borderRadius: 14, padding: '14px 16px',
-            }}>
-              <p style={{ fontSize: 13, color: T.charcoal, marginBottom: 4, fontWeight: 600 }}>
-                האם אתה בטוח?
-              </p>
-              <p style={{ fontSize: 12, color: T.charcoalLight, marginBottom: 14, lineHeight: 1.5 }}>
-                פעולה זו תמחק את המטרייה וכל הנתונים שלה — לא ניתן לשחזר.
-              </p>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={handleDeleteUmbrella}
-                  disabled={deleting}
-                  style={{
-                    flex: 1, background: T.red, color: '#fff', borderRadius: 10,
-                    border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit', opacity: deleting ? 0.6 : 1,
-                  }}
-                >
-                  {deleting ? 'מוחק…' : 'מחק לצמיתות'}
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  style={{
-                    flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10,
-                    border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  ביטול
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button
-                onClick={() => { setMoveTargetId(undefined); setShowMoveModal(true) }}
-                style={{
-                  width: '100%', padding: '12px 0', borderRadius: 14, border: 'none',
-                  background: T.blueLight, color: T.blue,
-                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                מעבר תחת מטרייה אחרת
-              </button>
-              <button
-                onClick={handleArchive}
-                disabled={archiving}
-                style={{
-                  width: '100%', padding: '12px 0', borderRadius: 14, border: 'none',
-                  background: T.sageLight, color: T.charcoalMid,
-                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                  opacity: archiving ? 0.6 : 1,
-                }}
-              >
-                {archiving ? 'מארכב…' : '📦 ארכוב המטרייה'}
-              </button>
-              <button
-                onClick={() => setConfirmDelete(true)}
-                style={{
-                  width: '100%', padding: '10px 0', borderRadius: 14,
-                  border: `1px solid ${T.red}44`, background: 'transparent',
-                  color: T.red, fontSize: 13, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                מחק המטרייה
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Toast */}
@@ -1724,6 +1653,102 @@ export default function UmbrellaDetail({ umbrella, navigate, goBack }: Props) {
       })()}
 
       {/* Move-under-parent modal */}
+      {/* Kebab bottom sheet */}
+      {showKebab && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(44,44,42,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setShowKebab(false)}
+        >
+          <div
+            dir="rtl"
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 430, margin: '0 auto', background: T.bgCard, borderRadius: '20px 20px 0 0', paddingBottom: 40 }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: T.sageMid }} />
+            </div>
+            {[
+              {
+                emoji: '✏️', label: 'שינוי שם',
+                action: () => { setHeaderNameInput(umbrella.name); setHeaderIconInput(umbrella.icon); setEditingHeader(true); setShowKebab(false) },
+              },
+              {
+                emoji: '🖼️', label: 'שינוי אייקון',
+                action: () => { setHeaderNameInput(umbrella.name); setHeaderIconInput(umbrella.icon); setEditingHeader(true); setShowKebab(false) },
+              },
+              {
+                emoji: '📂', label: 'העברה תחת מטרייה אחרת',
+                action: () => { setMoveTargetId(undefined); setShowMoveModal(true); setShowKebab(false) },
+              },
+              {
+                emoji: '📦', label: 'ארכוב',
+                action: () => { handleArchive(); setShowKebab(false) },
+              },
+              {
+                emoji: '🗑️', label: 'מחיקה', danger: true,
+                action: () => { setConfirmDelete(true); setShowKebab(false) },
+              },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                style={{
+                  width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14,
+                  fontFamily: 'inherit', fontSize: 15, textAlign: 'right',
+                  color: (item as { danger?: boolean }).danger ? T.red : T.charcoal,
+                }}
+              >
+                <span style={{ fontSize: 20 }}>{item.emoji}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation bottom sheet */}
+      {confirmDelete && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(44,44,42,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setConfirmDelete(false)}
+        >
+          <div
+            dir="rtl"
+            onClick={e => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 430, margin: '0 auto', background: T.bgCard, borderRadius: '20px 20px 0 0', padding: '24px 20px 40px' }}
+          >
+            <p style={{ fontSize: 16, fontWeight: 700, color: T.charcoal, marginBottom: 8 }}>מחיקת מטרייה</p>
+            <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 20, lineHeight: 1.5 }}>
+              פעולה זו תמחק את המטרייה וכל הנתונים שלה — לא ניתן לשחזר.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={handleDeleteUmbrella}
+                disabled={deleting}
+                style={{
+                  flex: 1, background: T.red, color: '#fff', borderRadius: 12,
+                  border: 'none', padding: '13px 0', fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit', opacity: deleting ? 0.6 : 1,
+                }}
+              >
+                {deleting ? 'מוחק…' : 'מחק לצמיתות'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                style={{
+                  flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 12,
+                  border: 'none', padding: '13px 0', fontSize: 14, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showMoveModal && (() => {
         const descendantIds = collectDescendantIds(umbrella)
         const flat = flattenWithDepth(allUmbrellas).filter(

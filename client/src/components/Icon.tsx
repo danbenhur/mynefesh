@@ -6,6 +6,7 @@ export type IconName =
   | 'back' | 'mic' | 'send' | 'sparkle' | 'chevron'
   | 'bell' | 'heart' | 'money' | 'kids' | 'spirit'
   | 'health' | 'people' | 'settings' | 'lock' | 'globe' | 'plus'
+  | 'kebab'
 
 interface IconProps {
   name: IconName
@@ -118,6 +119,13 @@ const ICONS: Record<IconName, IconDef> = {
     <>
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </>
+  ),
+  kebab: () => (
+    <>
+      <circle cx="12" cy="5" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="12" cy="19" r="1" />
     </>
   ),
 }
