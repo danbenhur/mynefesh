@@ -1,7 +1,7 @@
 import { Router } from 'express'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, gte } from 'drizzle-orm'
 import { getDb, getPgPool } from '../db/index.js'
-import { whatsappSession, userSettings } from '../db/schema.js'
+import { whatsappSession, userSettings, interviewSession, questionAnswers } from '../db/schema.js'
 
 const router = Router()
 
@@ -198,6 +198,59 @@ router.post('/force-schema-public', async (_req, res) => {
     `)
     const cols = colRes.rows.map((r: { column_name: string }) => r.column_name)
     res.json({ ok: true, umbrellaQuestionsColumns: cols })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// Public — dumps last 5 days of interview_session + whatsapp_session + answer counts per day
+router.get('/sessions-public', async (_req, res) => {
+  const pool = getPgPool()
+  if (!pool) {
+    res.status(503).json({ error: 'No database connection' })
+    return
+  }
+  try {
+    const db = getDb()
+    const since = new Date()
+    since.setDate(since.getDate() - 5)
+    const sinceStr = since.toISOString().slice(0, 10)
+
+    const [interviewRows, wsRows, answerCounts] = await Promise.all([
+      db.select({
+        date: interviewSession.date,
+        startedAt: interviewSession.startedAt,
+        completedAt: interviewSession.completedAt,
+        currentIndex: interviewSession.currentIndex,
+      })
+        .from(interviewSession)
+        .where(gte(interviewSession.date, sinceStr))
+        .orderBy(desc(interviewSession.date)),
+      db.select({
+        date: whatsappSession.date,
+        state: whatsappSession.state,
+        snoozeCount: whatsappSession.snoozeCount,
+        lastMessageAt: whatsappSession.lastMessageAt,
+      })
+        .from(whatsappSession)
+        .where(gte(whatsappSession.date, sinceStr))
+        .orderBy(desc(whatsappSession.date)),
+      pool.query(`
+        SELECT interview_date::text AS date, COUNT(*)::int AS answer_count
+        FROM question_answers
+        WHERE interview_date >= $1
+        GROUP BY interview_date
+        ORDER BY interview_date DESC
+      `, [sinceStr]),
+    ])
+
+    res.json({
+      serverTime: new Date().toISOString(),
+      serverTimeJerusalem: jerusalemNow(),
+      interviewSessions: interviewRows,
+      whatsappSessions: wsRows,
+      answerCountsByDate: answerCounts.rows,
+    })
   } catch (err) {
     res.status(500).json({ error: String(err) })
   }
