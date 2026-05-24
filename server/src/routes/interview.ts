@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { and, desc, eq, gte } from 'drizzle-orm'
+import { and, desc, eq, gte, ne } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { interviewSession, questionAnswers, umbrellaQuestions, whatsappSession } from '../db/schema.js'
 import { composeTodaysQuestions } from '../lib/interview-composer.js'
@@ -16,12 +16,55 @@ function jerusalemDate(date: Date): string {
   return `${get('year')}-${get('month')}-${get('day')}`
 }
 
+function jerusalemHHMM(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Jerusalem',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  return `${get('hour')}:${get('minute')}`
+}
+
+function yesterdayStr(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`)
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+// Returns the effective interview date for the current request.
+// Grace window: if Jerusalem time is before 06:00 and the most recent open
+// whatsapp_session is from yesterday, bind the interview to that session's date.
+// This ensures a check-in answered at e.g. 00:30 is recorded for the previous day.
+async function getEffectiveInterviewDate(): Promise<string> {
+  const now = new Date()
+  const today = jerusalemDate(now)
+
+  if (jerusalemHHMM(now) < '06:00') {
+    const db = getDb()
+    const openSessions = await db
+      .select({ date: whatsappSession.date })
+      .from(whatsappSession)
+      .where(and(
+        ne(whatsappSession.state, 'completed'),
+        ne(whatsappSession.state, 'final_sent'),
+      ))
+      .orderBy(desc(whatsappSession.date))
+      .limit(1)
+
+    if (openSessions.length > 0 && String(openSessions[0].date) === yesterdayStr(today)) {
+      return yesterdayStr(today)
+    }
+  }
+
+  return today
+}
+
 // GET /api/interview/today
 router.get('/today', async (_req, res) => {
   try {
     const db = getDb()
-    const today = jerusalemDate(new Date())
-    const questions = await composeTodaysQuestions(new Date())
+    const today = await getEffectiveInterviewDate()
+    const questions = await composeTodaysQuestions(new Date(`${today}T12:00:00Z`))
 
     // Get or create today's session
     let rows = await db
@@ -83,7 +126,7 @@ router.post('/answer', async (req, res) => {
 
   try {
     const db = getDb()
-    const today = jerusalemDate(new Date())
+    const today = await getEffectiveInterviewDate()
     const { questionId, answerText, answerScale, answerBoolean, answerOptions, comment } = parse.data
 
     // Load question to compute normalized value and validate multi_select options
@@ -181,7 +224,7 @@ router.post('/answer', async (req, res) => {
 router.post('/complete', async (_req, res) => {
   try {
     const db = getDb()
-    const today = jerusalemDate(new Date())
+    const today = await getEffectiveInterviewDate()
 
     const rows = await db
       .select()

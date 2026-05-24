@@ -2,10 +2,11 @@ import cron from 'node-cron'
 import SunCalc from 'suncalc'
 import { and, eq, lt } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { userSettings, whatsappSession, resolutions, umbrellaQuestions, interviewSession } from '../db/schema.js'
+import { userSettings, whatsappSession, resolutions, umbrellaQuestions, interviewSession, questionAnswers } from '../db/schema.js'
 import { sendSMS } from './whatsapp.js'
 import { checkinWithLink, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
 import { computeResolutionProgress, todayJerusalem } from './resolutions.js'
+import { composeTodaysQuestions } from './interview-composer.js'
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 const JERUSALEM_LAT = 31.7683
@@ -149,6 +150,20 @@ async function tickMorning() {
     if (interviewRows[0]?.completedAt) {
       console.log('[scheduler] tickMorning: yesterday interview completed, skip morning reminder')
       return
+    }
+
+    // Belt-and-suspenders: if all of yesterday's questions have answers, treat as complete.
+    // Guards against POST /complete failing after all answers were saved.
+    const questionsDue = await composeTodaysQuestions(new Date(`${prevDate}T12:00:00Z`))
+    if (questionsDue.length > 0) {
+      const answersYesterday = await db
+        .select()
+        .from(questionAnswers)
+        .where(eq(questionAnswers.interviewDate, prevDate))
+      if (answersYesterday.length >= questionsDue.length) {
+        console.log('[scheduler] tickMorning: all questions answered for yesterday (completedAt missing), skip morning reminder')
+        return
+      }
     }
 
     // Fall back to whatsapp_session state as secondary guard

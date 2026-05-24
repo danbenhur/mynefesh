@@ -163,6 +163,7 @@ function CommentBox({ value, onChange }: { value: string; onChange: (v: string) 
 export default function InterviewScreen({ navigate }: Props) {
   const loadUmbrellas = useStore(s => s.loadUmbrellas)
   const [state, setState] = useState<InterviewState>({ phase: 'loading' })
+  const [completeError, setCompleteError] = useState(false)
   const [textValue, setTextValue] = useState('')
   const [scaleValue, setScaleValue] = useState<number | null>(null)
   const [boolValue, setBoolValue] = useState<'yes' | 'no' | 'partial' | null>(null)
@@ -218,20 +219,28 @@ export default function InterviewScreen({ navigate }: Props) {
     else if (q.answerType === 'multi_select') payload.answerOptions = multiValue
     else return // should not reach here — button is disabled
 
+    setCompleteError(false)
     setState({ ...state, submitting: true })
 
     try {
       await submitInterviewAnswer(payload)
+    } catch {
+      setState({ phase: 'answering', questions, session, index, submitting: false })
+      return
+    }
 
-      if (index + 1 >= questions.length) {
+    if (index + 1 >= questions.length) {
+      try {
         await completeInterview()
         loadUmbrellas() // refresh analytics scores in background — don't await
         setState({ phase: 'done' })
-      } else {
-        setState({ phase: 'answering', questions, session, index: index + 1, submitting: false })
+      } catch {
+        // Answer was saved but session completion failed — show a visible retry prompt
+        setCompleteError(true)
+        setState({ phase: 'answering', questions, session, index, submitting: false })
       }
-    } catch {
-      setState({ phase: 'answering', questions, session, index, submitting: false })
+    } else {
+      setState({ phase: 'answering', questions, session, index: index + 1, submitting: false })
     }
   }
 
@@ -463,6 +472,14 @@ export default function InterviewScreen({ navigate }: Props) {
         >
           {submitting ? '...' : index + 1 === total ? 'סיים ✓' : 'הבא ›'}
         </button>
+        {completeError && index + 1 === total && (
+          <p style={{
+            marginTop: 12, textAlign: 'center',
+            fontSize: 13, color: T.red, lineHeight: 1.5,
+          }}>
+            לא הצלחנו לשמור את הסיום — נסה שוב
+          </p>
+        )}
       </div>
     </div>
   )
