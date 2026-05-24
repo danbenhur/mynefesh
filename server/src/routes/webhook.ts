@@ -1,12 +1,40 @@
 import { Router } from 'express'
-import type { Request, Response } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import { eq } from 'drizzle-orm'
+import twilio from 'twilio'
 import { getDb } from '../db/index.js'
 import { whatsappSession, userSettings } from '../db/schema.js'
 import { sendSMS } from '../lib/whatsapp.js'
 import { SNOOZE_FOLLOWUP, FINAL, CHECKIN_THANKS } from '../lib/whatsapp-messages.js'
 
 const router = Router()
+
+function verifyTwilioSignature(req: Request, res: Response, next: NextFunction): void {
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  if (!authToken) {
+    console.warn('[webhook] TWILIO_AUTH_TOKEN not set — skipping signature verification (dev mode)')
+    next()
+    return
+  }
+
+  const signature = req.headers['x-twilio-signature'] as string | undefined
+  if (!signature) {
+    res.sendStatus(403)
+    return
+  }
+
+  const publicUrl = (process.env.PUBLIC_URL ?? '').replace(/\/$/, '')
+  const url = publicUrl + req.originalUrl
+
+  const isValid = twilio.validateRequest(authToken, signature, url, req.body as Record<string, string>)
+  if (!isValid) {
+    console.warn(`[webhook] Invalid Twilio signature for ${req.originalUrl}`)
+    res.sendStatus(403)
+    return
+  }
+
+  next()
+}
 
 const TWIML_OK = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
@@ -109,11 +137,11 @@ async function handleDeliveryStatus(req: Request, res: Response) {
 }
 
 // SMS routes (new)
-router.post('/sms', handleInboundMessage)
-router.post('/sms-status', handleDeliveryStatus)
+router.post('/sms', verifyTwilioSignature, handleInboundMessage)
+router.post('/sms-status', verifyTwilioSignature, handleDeliveryStatus)
 
 // WhatsApp routes kept for backward compat — same handlers
-router.post('/whatsapp', handleInboundMessage)
-router.post('/whatsapp-status', handleDeliveryStatus)
+router.post('/whatsapp', verifyTwilioSignature, handleInboundMessage)
+router.post('/whatsapp-status', verifyTwilioSignature, handleDeliveryStatus)
 
 export default router
