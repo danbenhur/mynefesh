@@ -111,6 +111,53 @@ router.post('/reset-today-public', async (_req, res) => {
   }
 })
 
+// Public — dumps interview_session + whatsapp_session + answer counts for last 5 days
+router.get('/interview-state-public', async (_req, res) => {
+  const pool = getPgPool()
+  if (!pool) { res.status(503).json({ error: 'No database connection' }); return }
+  try {
+    const db = getDb()
+    const since = new Date(); since.setDate(since.getDate() - 5)
+    const sinceStr = since.toISOString().slice(0, 10)
+
+    const [sessions, waSessions, answerCounts] = await Promise.all([
+      db.select().from(interviewSession).where(gte(interviewSession.date, sinceStr)).orderBy(desc(interviewSession.date)),
+      db.select().from(whatsappSession).where(gte(whatsappSession.date, sinceStr)).orderBy(desc(whatsappSession.date)),
+      pool.query(`
+        SELECT interview_date, COUNT(*)::int AS count
+        FROM question_answers
+        WHERE interview_date >= $1
+        GROUP BY interview_date ORDER BY interview_date DESC
+      `, [sinceStr]),
+    ])
+
+    const jerusalemNow = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Jerusalem',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date())
+
+    res.json({
+      serverTimeJerusalem: jerusalemNow,
+      interviewSessions: sessions.map(s => ({
+        date: s.date,
+        startedAt: s.startedAt,
+        completedAt: s.completedAt,
+        currentIndex: s.currentIndex,
+      })),
+      whatsappSessions: waSessions.map(s => ({
+        date: s.date,
+        state: s.state,
+        snoozeCount: s.snoozeCount,
+        lastMessageAt: s.lastMessageAt,
+      })),
+      answerCountsByDate: answerCounts.rows,
+    })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
 // Public — raw SQL counts to diagnose interview "no questions" bug
 // Uses pool directly to avoid Drizzle schema column mapping (options col may not exist yet)
 router.get('/data-counts-public', async (_req, res) => {
