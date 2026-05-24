@@ -197,8 +197,12 @@ user_sessions          ← managed by connect-pg-simple
 - `GET /sandbox/status` — `{ sandboxStatus, lastSandboxJoinAt, lastDeliveryFailureAt }`
 - `POST /sandbox/joined` — Mark re-joined → sets status to `active`
 - `POST /whatsapp/reset-today` — Force-reset today's WhatsApp session to `pending`
-- `POST /webhook/whatsapp` — Inbound Twilio message handler (Hebrew "בוצע" = done, else = snooze)
-- `POST /webhook/whatsapp-status` — Delivery failure callback; sets `sandbox_status` to `expired`
+- `POST /webhook/sms` — Inbound Twilio message handler (Hebrew "בוצע" = done, else = snooze). **Requires valid Twilio signature** (`X-Twilio-Signature`); returns 403 if missing/invalid.
+- `POST /webhook/sms-status` — Delivery failure callback; sets `sandbox_status` to `expired`. Signature-verified.
+- `POST /webhook/whatsapp` — Backward-compat alias for `/webhook/sms`. Signature-verified.
+- `POST /webhook/whatsapp-status` — Backward-compat alias for `/webhook/sms-status`. Signature-verified.
+
+**Webhook security:** All four routes run `verifyTwilioSignature` middleware first. It reads `TWILIO_AUTH_TOKEN` + `PUBLIC_URL` env vars and calls `twilio.validateRequest()`. Skips (with `console.warn`) if `TWILIO_AUTH_TOKEN` is not set, so local dev is unblocked.
 
 ### Health History (`/api/health-history`)
 - `GET /` — `?umbrella=:id&days=30`
