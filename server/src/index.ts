@@ -19,7 +19,6 @@ import settingsRouter from './routes/settings.js'
 import whatsappAdminRouter from './routes/whatsapp-admin.js'
 import { umbrellaQuestionsRouter, questionsRouter } from './routes/questions.js'
 import sandboxRouter from './routes/sandbox.js'
-import debugRouter from './routes/debug.js'
 import interviewRouter from './routes/interview.js'
 import analyticsRouter from './routes/analytics.js'
 import { umbrellaResolutionsRouter, resolutionsRouter } from './routes/resolutions.js'
@@ -74,9 +73,6 @@ app.use('/auth', authRouter)
 
 // Twilio webhook — public, form-encoded body, must be before requireAuth
 app.use('/webhook', express.urlencoded({ extended: false }), webhookRouter)
-
-// Temporary public debug endpoints — remove after use
-app.use('/api/debug', debugRouter)
 
 // All /api/* routes beyond this point require a valid session
 app.use('/api', requireAuth)
