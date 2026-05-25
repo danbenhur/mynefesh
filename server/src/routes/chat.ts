@@ -4,6 +4,7 @@ import { desc, ne, asc } from 'drizzle-orm'
 import Anthropic from '@anthropic-ai/sdk'
 import { getDb } from '../db/index.js'
 import { chatMessages, umbrellas, tasks, reminders } from '../db/schema.js'
+import { getAllUmbrellaHealthScores } from '../lib/analytics.js'
 
 const router = Router()
 const client = new Anthropic()
@@ -36,18 +37,20 @@ async function buildContextBlock(): Promise<string> {
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
 
-  const [allUmbrellas, openTasks, allReminders] = await Promise.all([
+  const [allUmbrellas, openTasks, allReminders, healthScores] = await Promise.all([
     db.select().from(umbrellas).orderBy(asc(umbrellas.position)),
     db.select().from(tasks).where(ne(tasks.status, 'done')),
     db.select().from(reminders),
+    getAllUmbrellaHealthScores(),
   ])
 
   const umbrellaLines: string[] = []
   for (const u of allUmbrellas) {
     const uReminders = allReminders.filter(r => r.umbrellaId === u.id)
+    const score = healthScores[u.id]
     umbrellaLines.push(
       `  <umbrella id="${u.id}" name="${esc(u.name, true)}" icon="${esc(u.icon, true)}" parent_id="${u.parentId ?? ''}">`,
-      `    <health_score>${u.healthScore}</health_score>`,
+      `    <health_score>${score !== null && score !== undefined ? Math.round(score) : 'unknown'}</health_score>`,
     )
     for (const note of u.notes) {
       umbrellaLines.push(`    <note>${esc(note)}</note>`)
