@@ -24,24 +24,16 @@ router.get(
     console.log('[auth/google/callback] comparison:', gotEmail, '===', allowedEmail, '->', gotEmail === allowedEmail)
 
     if (!allowedEmail || gotEmail !== allowedEmail) {
-      const params = new URLSearchParams({
-        auth_error: 'email-mismatch',
-        got: gotEmail,
-        expected: allowedEmail,
-      })
-      res.redirect(`${frontendUrl}/?${params.toString()}`)
+      res.redirect(`${frontendUrl}/?auth_error=email-mismatch`)
       return
     }
 
     req.login(profile, (loginErr) => {
       if (loginErr) {
         console.error('[auth/google/callback] req.login error:', loginErr)
-        res.redirect(`${frontendUrl}/?auth_error=login-failed&detail=${encodeURIComponent(String(loginErr))}`)
+        res.redirect(`${frontendUrl}/?auth_error=login-failed`)
         return
       }
-
-      console.log('[auth/google/callback] req.login ok, session id =', req.session.id)
-      console.log('[auth/google/callback] session.passport =', JSON.stringify((req.session as unknown as Record<string, unknown>).passport))
 
       // Explicitly save the session before redirecting — without this the async
       // Postgres store may not finish writing before the browser follows the redirect,
@@ -49,10 +41,9 @@ router.get(
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('[auth/google/callback] session.save error:', saveErr)
-          res.redirect(`${frontendUrl}/?auth_error=session-save-failed&detail=${encodeURIComponent(String(saveErr))}`)
+          res.redirect(`${frontendUrl}/?auth_error=session-save-failed`)
           return
         }
-        console.log('[auth/google/callback] session saved, redirecting')
         res.redirect(frontendUrl)
       })
     })
