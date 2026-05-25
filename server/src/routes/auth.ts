@@ -24,12 +24,7 @@ router.get(
     console.log('[auth/google/callback] comparison:', gotEmail, '===', allowedEmail, '->', gotEmail === allowedEmail)
 
     if (!allowedEmail || gotEmail !== allowedEmail) {
-      const params = new URLSearchParams({
-        auth_error: 'email-mismatch',
-        got: gotEmail,
-        expected: allowedEmail,
-      })
-      res.redirect(`${frontendUrl}/?${params.toString()}`)
+      res.redirect(`${frontendUrl}/?auth_error=unauthorized`)
       return
     }
 

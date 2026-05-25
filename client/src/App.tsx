@@ -105,8 +105,6 @@ export default function App() {
   if (!auth.authenticated) {
     const params = new URLSearchParams(window.location.search)
     const authError = params.get('auth_error')
-    const gotEmail = params.get('got')
-    const expectedEmail = params.get('expected')
 
     return (
       <div style={{
@@ -125,10 +123,8 @@ export default function App() {
             borderRadius: 12, padding: '12px 16px', marginBottom: 24,
             fontSize: 12, color: '#664d03', maxWidth: 320,
           }}>
-            {authError === 'email-mismatch' && (<>
-              <strong>כניסה נחסמה — כתובת מייל שגויה</strong><br />
-              גוגל החזיר: <code>{gotEmail}</code><br />
-              השרת ציפה ל: <code>{expectedEmail}</code>
+            {authError === 'unauthorized' && (<>
+              <strong>החשבון הזה אינו מורשה להתחבר</strong>
             </>)}
             {authError === 'login-failed' && (<>
               <strong>כניסה נכשלה (שגיאת req.login)</strong><br />
@@ -138,7 +134,7 @@ export default function App() {
               <strong>שמירת הסשן נכשלה</strong><br />
               <code>{params.get('detail')}</code>
             </>)}
-            {!['email-mismatch','login-failed','session-save-failed'].includes(authError) && (<>
+            {!['unauthorized','login-failed','session-save-failed'].includes(authError) && (<>
               <strong>שגיאת הזדהות: {authError}</strong>
             </>)}
           </div>
