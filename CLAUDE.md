@@ -384,6 +384,51 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 
 ---
 
+## Schema Change Workflow (Canonical — Read Before Touching Migrations)
+
+This project has a history of migration disasters from hand-written files and journal desync. Follow this workflow exactly.
+
+### The golden rule
+
+**Always use `npx drizzle-kit generate` to create migrations. Never hand-write `.sql` files or edit `_journal.json` manually.**
+
+`drizzle-kit generate` creates the `.sql` file AND updates `meta/_journal.json` atomically. Hand-editing either one without the other is how the journal-desync disasters happen.
+
+### Step-by-step: making a schema change
+
+1. Edit the Drizzle schema in `server/src/db/schema.ts`.
+2. Run `npx drizzle-kit generate` from `server/`. This creates a new numbered `.sql` file and updates `_journal.json`.
+3. The generated SQL uses bare DDL by default. **Manually edit the generated file to make every statement idempotent:**
+   - `CREATE TABLE` → `CREATE TABLE IF NOT EXISTS`
+   - `ALTER TABLE … ADD COLUMN` → `ALTER TABLE … ADD COLUMN IF NOT EXISTS`
+   - `ALTER TYPE … ADD VALUE` → `ALTER TYPE … ADD VALUE IF NOT EXISTS`
+   - `CREATE TYPE` → wrap in `DO $$ BEGIN … EXCEPTION WHEN duplicate_object THEN NULL; END $$;`
+   - `ALTER TABLE … ADD CONSTRAINT` → wrap in `DO $$ BEGIN … EXCEPTION WHEN duplicate_object THEN NULL; END $$;`
+4. Run `npm run build` from `server/`. The build starts with `node scripts/check-migrations.mjs`, which verifies the journal and `.sql` files are in sync. If it fails, stop and fix the desync before deploying.
+5. Commit both the schema file and the new migration files together.
+
+### Why idempotency matters
+
+The migration runner tracks applied migrations by file hash in `__drizzle_migrations`. If that table ever gets out of sync (empty on an existing DB, restored from backup, etc.), `seedMigrationsIfNeeded()` in `lib/migration-seeder.ts` re-seeds the baseline. If migrations 0–8 are re-run and they're not idempotent, they crash (`duplicate table`, `duplicate column`). All migrations must be safe to re-run.
+
+### The build-time sync check
+
+`server/scripts/check-migrations.mjs` is run as the first step of `npm run build`. It:
+- Reads `meta/_journal.json` and lists all `.sql` files in `server/drizzle/`
+- Fails with exit 1 if any journal entry is missing a `.sql` file, or vice versa
+- Fails if indices are not sequential from 0
+
+A desync will now fail the Render build before it can reach the server.
+
+### What NOT to do
+
+- Do not hand-write a `.sql` file and forget to add a journal entry (or vice versa)
+- Do not copy a migration file from another branch without re-generating
+- Do not run `ALTER TABLE` or `CREATE TABLE` directly in psql without a migration file
+- Do not reuse an existing migration number
+
+---
+
 ## Known Caveats & Gotchas
 
 1. **Twilio WhatsApp sandbox expires every 72 hours.** Dan must re-join by texting the sandbox join phrase. The system detects expiry via Twilio delivery failure webhooks and shows a banner + sends a 60h reminder message. After re-joining, tap "I've re-joined ✓" in Settings.
