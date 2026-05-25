@@ -9,11 +9,9 @@ interface JournalEntry {
   tag: string
 }
 
-// Migrations 0–8 existed and were applied to the DB before the __drizzle_migrations
-// tracking table was introduced. This seeder marks them as applied so Drizzle's
-// migrate() only runs the genuinely new migrations (9+).
-const BASELINE_IDX = 8
-
+// Marks all journal entries as applied for databases that already have a schema but
+// no migration-tracking table (e.g. pre-seeder deployments or manual DB resets).
+// Drizzle's migrate() then only runs genuinely new migrations not yet in the journal.
 export async function seedMigrationsIfNeeded(migrationsFolder: string): Promise<void> {
   const pool = getPgPool()
   if (!pool) return
@@ -36,7 +34,11 @@ export async function seedMigrationsIfNeeded(migrationsFolder: string): Promise<
     if (hasRows.rows[0].count > 0) return  // Already seeded.
   }
 
-  console.log('[seeder] Existing schema detected with no migration history — seeding baseline (0–8).')
+  const journal: { entries: JournalEntry[] } = JSON.parse(
+    readFileSync(join(migrationsFolder, 'meta', '_journal.json'), 'utf8')
+  )
+
+  console.log(`[seeder] Existing schema detected with no migration history — seeding baseline (0–${journal.entries.length - 1}).`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
@@ -46,12 +48,7 @@ export async function seedMigrationsIfNeeded(migrationsFolder: string): Promise<
     )
   `)
 
-  const journal: { entries: JournalEntry[] } = JSON.parse(
-    readFileSync(join(migrationsFolder, 'meta', '_journal.json'), 'utf8')
-  )
-
   for (const entry of journal.entries) {
-    if (entry.idx > BASELINE_IDX) break
     const sql = readFileSync(join(migrationsFolder, `${entry.tag}.sql`), 'utf8')
     // Drizzle hashes the raw file content with SHA-256 (same algorithm as migrate()).
     const hash = createHash('sha256').update(sql).digest('hex')
@@ -64,5 +61,5 @@ export async function seedMigrationsIfNeeded(migrationsFolder: string): Promise<
     console.log(`[seeder] Marked ${entry.tag} as applied.`)
   }
 
-  console.log('[seeder] Done — migrate() will now only run migrations 9+.')
+  console.log('[seeder] Done — migrate() will now only run future migrations.')
 }

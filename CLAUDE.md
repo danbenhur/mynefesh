@@ -402,6 +402,12 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 
 8. **`health_score` column on `umbrellas` table is legacy.** The UI uses `computedHealthScore` from the analytics route, not `umbrella.health_score`. Don't write to `health_score` for anything new.
 
+9. **Migration workflow is hardened — follow it.** When changing the schema:
+   - Run `npm run db:generate` (in `server/`) to generate a new `.sql` file and update `drizzle/meta/_journal.json`.
+   - Never add a `.sql` file to `drizzle/` manually without a matching journal entry.
+   - `npm run build` runs `scripts/check-migrations.ts` first; it fails if `.sql` files and the journal are out of sync.
+   - The migration seeder (`lib/migration-seeder.ts`) marks ALL current journal entries as applied for existing DBs that have no migration-tracking table. New migrations (beyond the current journal) are applied by Drizzle's `migrate()` on next startup.
+
 ---
 
 ## Working Style — Dan's Rules
