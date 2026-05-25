@@ -1,5 +1,5 @@
-CREATE TYPE "public"."whatsapp_state" AS ENUM('pending', 'snoozed', 'completed', 'final_sent');--> statement-breakpoint
-CREATE TABLE "user_settings" (
+DO $$ BEGIN CREATE TYPE "public"."whatsapp_state" AS ENUM('pending', 'snoozed', 'completed', 'final_sent'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "user_settings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"checkin_time" text DEFAULT '21:00' NOT NULL,
 	"phone_number" text,
@@ -8,7 +8,7 @@ CREATE TABLE "user_settings" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "whatsapp_session" (
+CREATE TABLE IF NOT EXISTS "whatsapp_session" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"date" date NOT NULL,
 	"state" "whatsapp_state" DEFAULT 'pending' NOT NULL,
