@@ -270,7 +270,7 @@ Full umbrella view. Shows: 6-week trend sparkline (from analytics), sub-areas li
 Daily interview. Loads real questions from `/api/interview/today`. Progress bar, umbrella badge, multiple answer types (text, scale, boolean, boolean_partial). Resumes from `currentIndex` if interrupted. Completion screen in Hebrew. If `POST /complete` fails after all answers are saved, shows a Hebrew retry message ("לא הצלחנו לשמור את הסיום — נסה שוב") rather than silently resetting.
 
 ### ChatScreen
-AI chat. Loads history from DB; streams live responses via SSE. Empty state when no history. Claude system prompt includes current umbrella scores and recent answers.
+AI chat. Loads history from DB; streams live responses via SSE. Empty state when no history. Claude system prompt includes current umbrella scores (real computed scores via `getAllUmbrellaHealthScores()`, not the legacy `health_score` column) and recent answers.
 
 ### ProfileScreen
 Settings overview. Shows: avatar, display name, umbrella health rings. Notification toggles (morning brief and AI nudges are UI-only, not yet wired). Shabbat mode persisted to DB. Personality/language chips are UI-only. Logout button.

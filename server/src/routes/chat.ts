@@ -37,20 +37,21 @@ async function buildContextBlock(): Promise<string> {
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
 
-  const [allUmbrellas, openTasks, allReminders, healthScores] = await Promise.all([
+  const [allUmbrellas, openTasks, allReminders, computedScores] = await Promise.all([
     db.select().from(umbrellas).orderBy(asc(umbrellas.position)),
     db.select().from(tasks).where(ne(tasks.status, 'done')),
     db.select().from(reminders),
-    getAllUmbrellaHealthScores(),
+    getAllUmbrellaHealthScores(14),
   ])
 
   const umbrellaLines: string[] = []
   for (const u of allUmbrellas) {
     const uReminders = allReminders.filter(r => r.umbrellaId === u.id)
-    const score = healthScores[u.id]
+    const score = computedScores[u.id]
+    const scoreDisplay = score != null ? String(Math.round(score)) : 'no data yet'
     umbrellaLines.push(
       `  <umbrella id="${u.id}" name="${esc(u.name, true)}" icon="${esc(u.icon, true)}" parent_id="${u.parentId ?? ''}">`,
-      `    <health_score>${score !== null && score !== undefined ? Math.round(score) : 'unknown'}</health_score>`,
+      `    <health_score>${scoreDisplay}</health_score>`,
     )
     for (const note of u.notes) {
       umbrellaLines.push(`    <note>${esc(note)}</note>`)
