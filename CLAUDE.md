@@ -480,21 +480,42 @@ A desync will now fail the Render build before it can reach the server.
 
 ---
 
-## Standing Rule — CLAUDE.md Maintenance
+## Standing Rule — CLAUDE.md + STATUS.md Maintenance
 
 **This rule is mandatory and non-negotiable.**
 
-After every Cowork session, before the task is considered done, Claude MUST:
+After every Cowork session, before the task is considered done, Claude MUST update **both** files:
+
+### CLAUDE.md (technical reference)
 
 1. Update the **Current State** section to reflect what's actually live in production right now.
 2. Update the **Active Sprint** section to reflect what's in flight and what's next.
 3. Update the **Stack** section if any dependency, hosting, or service has changed.
 4. Update the **Data Model** section if any schema, migration, table, column, or relationship has changed.
 
-Then commit the updated CLAUDE.md with the message:
+### STATUS.md (strategic briefing)
+
+`STATUS.md` lives at the repo root and is the companion to this file — it's what Dan attaches to brainstorming chats to get Claude instantly up to speed without the full technical depth of CLAUDE.md.
+
+After every session, update these sections to reflect reality:
+
+1. **Current focus** — What is the active area of work right now?
+2. **Recently shipped** — Add any features/fixes that landed this session; prune anything that's now stale history.
+3. **Pending / partial** — Is anything newly in-flight, newly stuck, or newly done?
+4. **Open decisions / things to think about** — Add any new open questions; remove any that got resolved.
+
+Also copy the updated `STATUS.md` and `CLAUDE.md` to `F:\All\` so Dan can read both on his phone:
+```
+Copy-Item "H:\myNefesh\STATUS.md" "F:\All\STATUS.md" -Force
+Copy-Item "H:\myNefesh\CLAUDE.md" "F:\All\CLAUDE.md" -Force
+```
+
+### Commit
+
+Commit both files together:
 
 ```
 docs: update CLAUDE.md
 ```
 
-A session is not done until this commit lands. No exceptions.
+or split into two commits if only one changed. Either way, a session is not done until the commit(s) land. No exceptions.
