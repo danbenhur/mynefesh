@@ -236,10 +236,12 @@ Returns questions with umbrella name and icon attached.
 
 ### `lib/scheduler.ts`
 Cron runs every minute. Four tick functions:
-- `tickCheckin()` — Sends WhatsApp check-in at configured time; skips during Shabbat window (Friday sunset−1h → Saturday sunset+1h, via SunCalc); uses `saturday_checkin_time` if set
-- `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed. Guards (in order): (1) `interview_session.completed_at` set → skip; (2) all of yesterday's due questions have answers in `question_answers` → skip (belt-and-suspenders for failed `POST /complete`); (3) `whatsapp_session.state = 'completed'` → skip; otherwise sends MORNING_AFTER_SKIP.
-- `tickSandboxReminder()` — Sends once-per-day reminder ~60h before sandbox expiry
-- `tickResolutions()` — At 00:01 Jerusalem, auto-completes active resolutions whose `end_date` has passed; computes final score and sets `status='completed'`
+- `tickCheckin()` — Sends SMS check-in at configured time; skips during Shabbat window (Friday sunset−1h → Saturday sunset+1h, via SunCalc); uses `saturday_checkin_time` if set. **Short-circuits before the checkin window (no DB calls) using cached settings + in-memory time comparison.**
+- `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed. Guards (in order): (1) time ≠ 09:00 → return immediately; (2) `interview_session.completed_at` set → skip; (3) all of yesterday's due questions have answers in `question_answers` → skip (belt-and-suspenders for failed `POST /complete`); (4) `whatsapp_session.state = 'completed'` → skip; otherwise sends MORNING_AFTER_SKIP.
+- `tickSandboxReminder()` — Sends once-per-day reminder ~60h before sandbox expiry. Runs entirely in-memory on idle minutes (cached settings); only hits DB when actually sending.
+- `tickResolutions()` — At 00:01 Jerusalem, auto-completes active resolutions whose `end_date` has passed; computes final score and sets `status='completed'`. Time check happens before any DB query.
+
+**Settings cache:** `user_settings` is cached in process memory with a 1-hour TTL via `getSettings()`. This eliminates ~250k idle Neon SELECT hits/month. `invalidateSettingsCache()` is exported and called from `PATCH /api/settings` so any settings change is reflected on the next tick without waiting for TTL.
 
 ### `lib/resolutions.ts`
 Progress computation for resolutions:

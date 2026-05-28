@@ -35,6 +35,7 @@ Stability and polish. The major feature stack is built: persistence, auth, SMS, 
 - **Branch consolidation:** one branch (`master`), one push, no more drift between main/master.
 - **Migration workflow hardened:** every migration idempotent; build-time check fails the build if `_journal.json` and `.sql` files ever desync. The recurring nightmare is closed.
 - **AI chat:** Nefesh now sees real computed health scores derived from actual interview answers (was reading legacy placeholder column).
+- **Compute fix #1 (scheduler):** `user_settings` cached in process memory (1-hour TTL) + each tick short-circuits on in-memory time checks before touching Neon. Reduces idle DB hits from ~250k/month to near-zero. `invalidateSettingsCache()` called on PATCH /settings so changes take effect immediately.
 
 ---
 
