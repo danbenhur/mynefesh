@@ -37,6 +37,7 @@ Stability and polish. The major feature stack is built: persistence, auth, SMS, 
 - **AI chat:** Nefesh now sees real computed health scores derived from actual interview answers (was reading legacy placeholder column).
 - **Compute fix #1 (scheduler):** `user_settings` cached in process memory (1-hour TTL) + each tick short-circuits on in-memory time checks before touching Neon. Reduces idle DB hits from ~250k/month to near-zero. `invalidateSettingsCache()` called on PATCH /settings so changes take effect immediately.
 - **Compute fix #2 (indexes):** Migration 0013 adds 12 indexes on all FK columns (`umbrella_id`, `question_id`, `parent_id`) and frequently-filtered columns (`status`, `end_date`, `interview_date`, `archived_at`). Eliminates sequential scans on every join/filter query. Schema.ts updated with matching Drizzle `index()` definitions.
+- **Compute fix #3 (analytics batch):** `getAllUmbrellaHealthScores` rewritten to run 2 parallel queries (umbrella ID list + single GROUP BY aggregation) instead of N+1 per-umbrella queries. Zero-answer umbrellas now return explicit `null` rather than a missing map entry.
 
 ---
 

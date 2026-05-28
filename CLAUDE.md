@@ -221,7 +221,7 @@ user_sessions          ← managed by connect-pg-simple
 ### `lib/analytics.ts`
 Computes health scores and trends from `question_answers`:
 - `computeUmbrellaHealthScore(umbrellaId, days=14)` → 0–100 or null
-- `getAllUmbrellaHealthScores(days=14)` → `{ [umbrellaId]: score | null }`
+- `getAllUmbrellaHealthScores(days=14)` → `{ [umbrellaId]: score | null }` — 2 parallel queries: one SELECT id FROM umbrellas + one GROUP BY aggregation; all umbrella IDs present, zero-answer ones get null (compute fix 3)
 - `getUmbrellaDailyTrend(umbrellaId, days=42)` → `[{ date, score }]`
 - `getQuestionDailyTrend(questionId, days=90)` → full answer detail per day
 
