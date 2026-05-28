@@ -12,6 +12,8 @@ const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173'
 const JERUSALEM_LAT = 31.7683
 const JERUSALEM_LON = 35.2137
 
+type SettingsRow = typeof userSettings.$inferSelect
+
 function jerusalemNow(): { hhmm: string; date: string; dow: number } {
   const now = new Date()
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -73,12 +75,36 @@ function yesterday(dateStr: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-async function getOrCreateSettings() {
+// --- Settings cache ---
+// user_settings changes rarely (only via PATCH /api/settings). Caching with a
+// 1-hour TTL means each tick reads from memory instead of Neon, cutting
+// idle DB hits from ~270k/month to near-zero. Call invalidateSettingsCache()
+// immediately after any write to user_settings so updates are reflected within
+// the next tick rather than waiting for TTL expiry.
+let cachedSettings: SettingsRow | null = null
+let cachedAt = 0
+const SETTINGS_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+async function fetchOrCreateSettings(): Promise<SettingsRow> {
   const db = getDb()
   const rows = await db.select().from(userSettings).limit(1)
   if (rows.length > 0) return rows[0]
   const inserted = await db.insert(userSettings).values({}).returning()
   return inserted[0]
+}
+
+async function getSettings(): Promise<SettingsRow> {
+  if (cachedSettings && Date.now() - cachedAt < SETTINGS_TTL_MS) {
+    return cachedSettings
+  }
+  cachedSettings = await fetchOrCreateSettings()
+  cachedAt = Date.now()
+  return cachedSettings
+}
+
+export function invalidateSettingsCache(): void {
+  cachedSettings = null
+  cachedAt = 0
 }
 
 async function getOrCreateSession(date: string) {
@@ -91,8 +117,8 @@ async function getOrCreateSession(date: string) {
 
 async function tickCheckin() {
   try {
-    const db = getDb()
-    const settings = await getOrCreateSettings()
+    // Resolve checkin time from cache — no Neon hit.
+    const settings = await getSettings()
     const { hhmm, date, dow } = jerusalemNow()
     const now = new Date()
 
@@ -101,17 +127,20 @@ async function tickCheckin() {
       return
     }
 
-    const session = await getOrCreateSession(date)
-
-    if (session.state === 'completed' || session.state === 'final_sent') return
-
-    // On Saturday, honour the override time if set (allows firing after Shabbat ends)
     const effectiveCheckinTime =
       dow === 6 && settings.saturdayCheckinTime
         ? settings.saturdayCheckinTime
         : settings.checkinTime
 
-    if (session.state === 'pending' && hhmm >= effectiveCheckinTime) {
+    // Short-circuit: nothing to do before the checkin window — skip DB entirely.
+    if (hhmm < effectiveCheckinTime) return
+
+    const db = getDb()
+    const session = await getOrCreateSession(date)
+
+    if (session.state === 'completed' || session.state === 'final_sent') return
+
+    if (session.state === 'pending') {
       const interviewUrl = `${FRONTEND_URL}/#/interview`
       const sid = await sendSMS(checkinWithLink(interviewUrl))
       if (sid) {
@@ -130,10 +159,11 @@ async function tickCheckin() {
 
 async function tickMorning() {
   try {
+    // Cheap time check before any I/O.
     const { hhmm, date } = jerusalemNow()
     if (hhmm !== '09:00') return
 
-    const settings = await getOrCreateSettings()
+    const settings = await getSettings() // cached; only reaches here once at 09:00
     if (settings.shabbatMode && inShabbatWindow(new Date())) {
       console.log('[scheduler] shabbat_mode_skip (morning)')
       return
@@ -186,6 +216,7 @@ async function tickMorning() {
 // whose end_date has passed and records the final score.
 async function tickResolutions() {
   try {
+    // Cheap time check — getDb() returns the already-initialized client, no network call.
     const db = getDb()
     const { hhmm } = jerusalemNow()
     if (hhmm !== '00:01') return
@@ -218,7 +249,8 @@ async function tickResolutions() {
 
 async function tickSandboxReminder() {
   try {
-    const settings = await getOrCreateSettings()
+    // All checks run on cached settings — no Neon hit unless a reminder actually fires.
+    const settings = await getSettings()
     if (!settings.lastSandboxJoinAt) return
 
     if (settings.shabbatMode && inShabbatWindow(new Date())) {
@@ -237,10 +269,14 @@ async function tickSandboxReminder() {
     const sid = await sendSMS(SANDBOX_EXPIRY_REMINDER)
     if (sid) {
       const db = getDb()
+      const now = new Date()
       await db
         .update(userSettings)
-        .set({ last60hReminderAt: new Date() })
+        .set({ last60hReminderAt: now })
         .where(eq(userSettings.id, settings.id))
+      // Update cache in-place so the next tick sees the new timestamp without a DB round-trip.
+      cachedSettings = { ...settings, last60hReminderAt: now }
+      cachedAt = Date.now()
       console.log('[scheduler] Sent 60h sandbox expiry reminder')
     }
   } catch (err) {

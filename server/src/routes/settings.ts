@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { userSettings, whatsappSession } from '../db/schema.js'
+import { invalidateSettingsCache } from '../lib/scheduler.js'
 
 const router = Router()
 
@@ -94,6 +95,8 @@ router.patch('/', async (req, res) => {
           .where(eq(whatsappSession.date, today))
       }
     }
+
+    invalidateSettingsCache()
 
     res.json({
       checkinTime: updated[0].checkinTime,
