@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date, doublePrecision, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date, doublePrecision, jsonb, index } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
@@ -19,7 +19,10 @@ export const umbrellas = pgTable('umbrellas', {
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  parentIdIdx: index('idx_umbrellas_parent_id').on(t.parentId),
+  archivedAtIdx: index('idx_umbrellas_archived_at').on(t.archivedAt),
+}))
 
 export const tasks = pgTable('tasks', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -31,7 +34,10 @@ export const tasks = pgTable('tasks', {
   position: integer('position').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  umbrellaIdIdx: index('idx_tasks_umbrella_id').on(t.umbrellaId),
+  statusIdx: index('idx_tasks_status').on(t.status),
+}))
 
 export const reminders = pgTable('reminders', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -40,14 +46,18 @@ export const reminders = pgTable('reminders', {
   triggerAt: timestamp('trigger_at', { withTimezone: true }).notNull(),
   isRecurring: boolean('is_recurring').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  umbrellaIdIdx: index('idx_reminders_umbrella_id').on(t.umbrellaId),
+}))
 
 export const healthHistory = pgTable('health_history', {
   id: uuid('id').defaultRandom().primaryKey(),
   umbrellaId: uuid('umbrella_id').notNull().references(() => umbrellas.id, { onDelete: 'cascade' }),
   score: integer('score').notNull(),
   recordedAt: timestamp('recorded_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  umbrellaIdIdx: index('idx_health_history_umbrella_id').on(t.umbrellaId),
+}))
 
 export const whatsappStateEnum = pgEnum('whatsapp_state', ['pending', 'snoozed', 'completed', 'final_sent'])
 
@@ -95,7 +105,9 @@ export const umbrellaQuestions = pgTable('umbrella_questions', {
   enabled: boolean('enabled').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  umbrellaIdIdx: index('idx_umbrella_questions_umbrella_id').on(t.umbrellaId),
+}))
 
 export const questionAnswers = pgTable('question_answers', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -108,7 +120,10 @@ export const questionAnswers = pgTable('question_answers', {
   answerNormalized: doublePrecision('answer_normalized'),
   comment: text('comment'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  questionIdIdx: index('idx_question_answers_question_id').on(t.questionId),
+  interviewDateIdx: index('idx_question_answers_interview_date').on(t.interviewDate),
+}))
 
 export const interviewSession = pgTable('interview_session', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -130,7 +145,11 @@ export const resolutions = pgTable('resolutions', {
   finalScore: integer('final_score'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
+}, (t) => ({
+  umbrellaIdIdx: index('idx_resolutions_umbrella_id').on(t.umbrellaId),
+  questionIdIdx: index('idx_resolutions_question_id').on(t.questionId),
+  activeDueIdx: index('idx_resolutions_active_due').on(t.status, t.endDate),
+}))
 
 // No FK — chat is a global log, not per-umbrella (for now)
 export const chatMessages = pgTable('chat_messages', {
