@@ -1,6 +1,6 @@
 import { and, eq, gte, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { questionAnswers, umbrellaQuestions } from '../db/schema.js'
+import { questionAnswers, umbrellaQuestions, umbrellas } from '../db/schema.js'
 
 function sinceDate(days: number): string {
   const d = new Date()
@@ -81,25 +81,31 @@ export async function getQuestionDailyTrend(questionId: string, days = 90): Prom
   }))
 }
 
-// Batch version: one query for all umbrellas, returns umbrellaId → score map.
-// Umbrellas with no answer data are omitted from the map (caller gets undefined/null).
+// Batch version: 2 parallel queries — one GROUP BY aggregation + one umbrella ID list.
+// All umbrella IDs appear in the result; those with no answers get null.
 export async function getAllUmbrellaHealthScores(days = 14): Promise<Record<string, number | null>> {
   const db = getDb()
-  const rows = await db
-    .select({
-      umbrellaId: umbrellaQuestions.umbrellaId,
-      avg: sql<string>`AVG(${questionAnswers.answerNormalized})`,
-    })
-    .from(questionAnswers)
-    .innerJoin(umbrellaQuestions, eq(questionAnswers.questionId, umbrellaQuestions.id))
-    .where(and(
-      gte(questionAnswers.interviewDate, sinceDate(days)),
-      isNotNull(questionAnswers.answerNormalized),
-    ))
-    .groupBy(umbrellaQuestions.umbrellaId)
+  const [umbrellaRows, scoreRows] = await Promise.all([
+    db.select({ id: umbrellas.id }).from(umbrellas),
+    db
+      .select({
+        umbrellaId: umbrellaQuestions.umbrellaId,
+        avg: sql<string>`AVG(${questionAnswers.answerNormalized})`,
+      })
+      .from(questionAnswers)
+      .innerJoin(umbrellaQuestions, eq(questionAnswers.questionId, umbrellaQuestions.id))
+      .where(and(
+        gte(questionAnswers.interviewDate, sinceDate(days)),
+        isNotNull(questionAnswers.answerNormalized),
+      ))
+      .groupBy(umbrellaQuestions.umbrellaId),
+  ])
 
   const out: Record<string, number | null> = {}
-  for (const r of rows) {
+  for (const { id } of umbrellaRows) {
+    out[id] = null
+  }
+  for (const r of scoreRows) {
     out[r.umbrellaId] = Math.round(Number(r.avg) * 100)
   }
   return out
