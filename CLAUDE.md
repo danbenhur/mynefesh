@@ -243,6 +243,8 @@ Cron runs every minute. Four tick functions:
 
 **Settings cache:** `user_settings` is cached in process memory with a 1-hour TTL via `getSettings()`. This eliminates ~250k idle Neon SELECT hits/month. `invalidateSettingsCache()` is exported and called from `PATCH /api/settings` so any settings change is reflected on the next tick without waiting for TTL.
 
+**DB indexes (migration 0013):** All FK columns (`umbrella_id`, `question_id`, `parent_id`) and frequently-filtered columns (`status`, `end_date`, `interview_date`, `archived_at`) have explicit indexes. Drizzle's `references()` does not auto-create indexes on the referring column, so these were added manually as `CREATE INDEX IF NOT EXISTS` in migration 0013 and reflected in `schema.ts` via `index()` inside each table definition.
+
 ### `lib/resolutions.ts`
 Progress computation for resolutions:
 - `computeResolutionProgress(resolution, questionAnswerType)` → `{ successfulDays, elapsedDays, totalDays, percentage, currentStreak, longestStreak, daysRemaining }`
