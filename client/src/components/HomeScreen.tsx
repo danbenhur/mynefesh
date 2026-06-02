@@ -1,106 +1,26 @@
 import { useState, useEffect } from 'react'
-import { useStore } from '../store/useStore'
-import { T, umbrellaColor } from '../lib/theme'
-import Ring from './Ring'
-import Sparkline from './Sparkline'
-import Icon from './Icon'
+import { C } from '../lib/dashboardTheme'
+import { MOCK_DATA } from './dashboard/MockData'
+import HeroChart from './dashboard/HeroChart'
+import DashUmbrellaCard from './dashboard/UmbrellaCard'
 import { getSandboxStatus, markSandboxJoined, listArchivedUmbrellas } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
-import type { Umbrella } from '../types/umbrella'
-
-const ICON_PICKS = ['🏠', '👨‍👩‍👧‍👦', '💰', '🧒', '✨', '💪', '📚', '🎵', '🌍', '❤️', '🕍', '💼']
+import './dashboard/dashboard.css'
 
 function hebrewGreeting(): string {
   const h = new Date().getHours()
-  if (h < 5) return 'לילה טוב'
-  if (h < 12) return 'בוקר טוב'
-  if (h < 17) return 'צהריים טובים'
-  if (h < 20) return 'אחר הצהריים'
-  return 'ערב טוב'
+  if (h < 5)  return 'לילה טוב, דן 🌙'
+  if (h < 12) return 'בוקר טוב, דן ☀️'
+  if (h < 17) return 'צהריים טובים, דן 🌤️'
+  if (h < 20) return 'אחר הצהריים, דן 🌅'
+  return 'ערב טוב, דן 🌙'
 }
 
-function dateString() {
-  const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
-  const MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+function dateString(): string {
+  const DAYS   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת']
+  const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר']
   const now = new Date()
   return `יום ${DAYS[now.getDay()]}, ${now.getDate()} ב${MONTHS[now.getMonth()]}`
-}
-
-function sparklineData(u: Umbrella): number[] {
-  // Use analytics-derived trend when available; fall back to health history
-  if (u.computedTrend && u.computedTrend.length > 0) return u.computedTrend
-  const sorted = [...u.history]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map(h => h.score)
-  return sorted
-}
-
-interface CreateFormProps {
-  newName: string
-  setNewName: (v: string) => void
-  newIcon: string
-  setNewIcon: (v: string) => void
-  creating: boolean
-  onCreate: () => void
-  onCancel: () => void
-}
-
-function CreateForm({ newName, setNewName, newIcon, setNewIcon, creating, onCreate, onCancel }: CreateFormProps) {
-  return (
-    <div style={{ background: T.bgCard, borderRadius: 16, padding: 16, boxShadow: '0 1px 8px rgba(44,44,42,0.06)' }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>מטרייה חדשה</p>
-      <input
-        value={newName}
-        onChange={e => setNewName(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && onCreate()}
-        placeholder="שם (לדוגמה: בריאות)"
-        autoFocus
-        style={{
-          width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
-          borderRadius: 10, padding: '8px 12px', fontSize: 13, color: T.charcoal,
-          outline: 'none', marginBottom: 12, fontFamily: 'inherit', boxSizing: 'border-box',
-        }}
-      />
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-        {ICON_PICKS.map(icon => (
-          <button
-            key={icon}
-            onClick={() => setNewIcon(icon)}
-            style={{
-              width: 36, height: 36, fontSize: 18, borderRadius: 10, border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-              background: newIcon === icon ? T.sage : T.sageLight,
-              outline: newIcon === icon ? `2px solid ${T.sage}` : 'none',
-            }}
-          >
-            {icon}
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={onCreate}
-          disabled={!newName.trim() || creating}
-          style={{
-            flex: 1, background: T.sage, color: '#fff', borderRadius: 10, border: 'none',
-            padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit', opacity: !newName.trim() || creating ? 0.5 : 1,
-          }}
-        >
-          {creating ? 'יוצר…' : 'צור'}
-        </button>
-        <button
-          onClick={onCancel}
-          style={{
-            flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10, border: 'none',
-            padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          ביטול
-        </button>
-      </div>
-    </div>
-  )
 }
 
 interface Props {
@@ -108,19 +28,14 @@ interface Props {
 }
 
 export default function HomeScreen({ navigate }: Props) {
-  const { umbrellas, loading, addUmbrella } = useStore()
-  const [showCreate, setShowCreate] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newIcon, setNewIcon] = useState('🏠')
-  const [creating, setCreating] = useState(false)
-  const [sandboxExpired, setSandboxExpired] = useState(false)
-  const [markingJoined, setMarkingJoined] = useState(false)
-  const [archivedCount, setArchivedCount] = useState(0)
+  const [sandboxExpired, setSandboxExpired]   = useState(false)
+  const [markingJoined, setMarkingJoined]     = useState(false)
+  const [archivedCount, setArchivedCount]     = useState(0)
 
   useEffect(() => {
     getSandboxStatus()
       .then(s => { if (s.sandboxStatus === 'expired') setSandboxExpired(true) })
-      .catch(() => { /* silent — banner is optional */ })
+      .catch(() => {})
     listArchivedUmbrellas()
       .then(list => setArchivedCount(list.length))
       .catch(() => {})
@@ -138,49 +53,21 @@ export default function HomeScreen({ navigate }: Props) {
     }
   }
 
-  async function handleCreate() {
-    if (!newName.trim()) return
-    setCreating(true)
-    await addUmbrella(newName.trim(), newIcon)
-    setNewName('')
-    setNewIcon('🏠')
-    setShowCreate(false)
-    setCreating(false)
-  }
-
-  const scoredUmbrellas = umbrellas.filter(u => u.computedHealthScore !== null)
-  const overallScore = scoredUmbrellas.length
-    ? Math.round(scoredUmbrellas.reduce((s, u) => s + (u.computedHealthScore ?? 0), 0) / scoredUmbrellas.length)
-    : 0
-  const hasComputedData = scoredUmbrellas.length > 0
-
-  const lowCount = scoredUmbrellas.filter(u => (u.computedHealthScore ?? 0) < 60).length
-  const supportingLine = umbrellas.length === 0
-    ? 'הוסף מטריות לראות את ציון הרווחה שלך.'
-    : !hasComputedData
-      ? 'השלם את הראיון היומי לראות את הציון שלך.'
-      : lowCount > 0
-        ? `${lowCount === 1 ? 'תחום אחד דורש' : `${lowCount} תחומים דורשים`} תשומת לב השבוע.`
-        : 'כל התחומים נראים טוב השבוע.'
-
   return (
-    <div dir="rtl" style={{ minHeight: '100%', background: T.bg, paddingBottom: 24 }}>
-      {/* Greeting header */}
-      <div style={{ padding: '64px 20px 0' }}>
-        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 2 }}>{hebrewGreeting()}, דן 👋</p>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color: T.charcoal, lineHeight: 1.2, marginBottom: 4 }}>
-          איך העולם שלך היום?
-        </h1>
-        <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 24 }}>{dateString()}</p>
+    <div dir="rtl" lang="he" className="mn-screen">
+
+      {/* ── Greeting ─────────────────────────────────────── */}
+      <div className="mn-greeting">
+        <p className="mn-greeting-time">{hebrewGreeting()}</p>
+        <p className="mn-greeting-sub">{dateString()}</p>
       </div>
 
-      {/* Sandbox expiry banner */}
+      {/* ── Sandbox expiry banner ─────────────────────────── */}
       {sandboxExpired && (
-        <div style={{ padding: '0 20px', marginBottom: 12 }}>
+        <div style={{ padding: '0 16px', marginBottom: 16 }}>
           <div style={{
             background: '#FFF3CD', borderRadius: 14, padding: '14px 16px',
-            border: '1px solid #FFE08A',
-            display: 'flex', alignItems: 'flex-start', gap: 10,
+            border: '1px solid #FFE08A', display: 'flex', alignItems: 'flex-start', gap: 10,
           }}>
             <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
             <div style={{ flex: 1 }}>
@@ -188,7 +75,7 @@ export default function HomeScreen({ navigate }: Props) {
                 Sandbox WhatsApp פג תוקפו
               </p>
               <p style={{ fontSize: 12, color: '#7A5C00', lineHeight: 1.5, marginBottom: 8 }}>
-                צ'ק-אינים לא יישלחו עד שתצטרף מחדש ל-sandbox של Twilio. עבור להגדרות לחידוש.
+                צ׳ק-אינים לא יישלחו עד שתצטרף מחדש.
               </p>
               <button
                 onClick={handleMarkJoined}
@@ -207,189 +94,44 @@ export default function HomeScreen({ navigate }: Props) {
         </div>
       )}
 
-      {/* Wellness Score card */}
-      <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{
-          background: T.bgCard, borderRadius: 20, padding: 20,
-          boxShadow: '0 2px 12px rgba(44,44,42,0.06)',
-          display: 'flex', alignItems: 'center', gap: 16,
-        }}>
-          <div style={{ position: 'relative', width: 100, height: 100, flexShrink: 0 }}>
-            <Ring score={overallScore} size={100} stroke={8} color={T.sage} animate />
-            <div style={{
-              position: 'absolute', inset: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, lineHeight: 1 }}>
-                {umbrellas.length && hasComputedData ? overallScore : '—'}
-              </span>
-              {!!(umbrellas.length && hasComputedData) && (
-                <span style={{ fontSize: 10, color: T.charcoalLight }}>/100</span>
-              )}
-            </div>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>ציון רווחה כללי</p>
-            <p style={{ fontSize: 12, color: T.charcoalMid, lineHeight: 1.5, marginBottom: 10 }}>{supportingLine}</p>
-            {umbrellas.length > 0 && hasComputedData && overallScore >= 50 && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                background: T.sageLight, color: T.sage,
-                fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 20,
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sage }} />
-                מומנטום טוב
-              </span>
-            )}
-          </div>
+      {/* ── Hero chart ───────────────────────────────────── */}
+      <HeroChart data={MOCK_DATA} colors={C} />
+
+      {/* ── Gallery ──────────────────────────────────────── */}
+      <section className="mn-gallery-section">
+        <div className="mn-gallery-header">
+          <h2>המטריות שלי</h2>
+          <span className="mn-gallery-count">{MOCK_DATA.umbrellas.length}</span>
         </div>
-      </div>
 
-      {/* AI Nudges — empty state until real data is available */}
-      <div style={{ padding: '0 20px', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-          <Icon name="sparkle" size={16} color={T.amber} />
-          <span style={{ fontSize: 15, fontWeight: 600, color: T.charcoal }}>Nefesh מציע</span>
-        </div>
-        <div style={{
-          background: T.sageLight, borderRadius: 16, padding: '16px 18px',
-          border: `1px dashed ${T.sageMid}`,
-        }}>
-          <p style={{ fontSize: 13, color: T.charcoalLight, lineHeight: 1.6, textAlign: 'center' }}>
-            Nefesh יציע לך הצעות ככל שיצטבר מידע
-          </p>
-        </div>
-      </div>
-
-      {/* Life Umbrellas */}
-      <div style={{ padding: '0 20px' }}>
-        <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 12 }}>המטריות שלי</p>
-
-        {loading && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-            <div style={{
-              width: 28, height: 28, border: `2px solid ${T.sage}`,
-              borderTopColor: 'transparent', borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }} />
-          </div>
-        )}
-
-        {!loading && umbrellas.length === 0 && (
-          <div>
-            <div style={{ textAlign: 'center', padding: '24px 0 20px' }}>
-              <p style={{ fontSize: 36, marginBottom: 8 }}>🌿</p>
-              <p style={{ fontSize: 15, fontWeight: 600, color: T.charcoal, marginBottom: 4 }}>אין מטריות עדיין</p>
-              <p style={{ fontSize: 13, color: T.charcoalLight, marginBottom: 16 }}>
-                צור את תחום החיים הראשון שלך
-              </p>
-              {!showCreate && (
-                <button
-                  onClick={() => setShowCreate(true)}
-                  style={{
-                    background: T.sage, color: '#fff', padding: '10px 20px',
-                    borderRadius: 12, border: 'none', fontSize: 13, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  + צור מטרייה ראשונה
-                </button>
-              )}
-            </div>
-            {showCreate && (
-              <CreateForm
-                newName={newName} setNewName={setNewName}
-                newIcon={newIcon} setNewIcon={setNewIcon}
-                creating={creating} onCreate={handleCreate}
-                onCancel={() => { setShowCreate(false); setNewName(''); setNewIcon('🏠') }}
+        <div className="mn-gallery-wrap">
+          <div className="mn-gallery-grid">
+            {MOCK_DATA.umbrellas.map(u => (
+              <DashUmbrellaCard
+                key={u.key}
+                umbrella={u}
+                colors={C}
+                onClick={undefined}
               />
-            )}
+            ))}
           </div>
+        </div>
+
+        {/* Archived link — real data */}
+        {archivedCount > 0 && (
+          <button
+            onClick={() => navigate('archived')}
+            style={{
+              display: 'block', margin: '14px auto 0', background: 'none', border: 'none',
+              color: C.muted, fontSize: 12, cursor: 'pointer',
+              fontFamily: 'inherit', textDecoration: 'underline',
+            }}
+          >
+            ארכיון ({archivedCount})
+          </button>
         )}
+      </section>
 
-        {!loading && umbrellas.length > 0 && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 12 }}>
-              {umbrellas.map((u, i) => {
-                const color = umbrellaColor(u.name)
-                const data = sparklineData(u)
-                const isLastOdd = umbrellas.length % 2 === 1 && i === umbrellas.length - 1
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => navigate('umbrella', { umbrellaId: u.id })}
-                    style={{
-                      gridColumn: isLastOdd ? '1 / -1' : undefined,
-                      background: T.bgCard, borderRadius: 16, padding: 14,
-                      border: 'none', cursor: 'pointer', textAlign: 'start',
-                      boxShadow: '0 1px 8px rgba(44,44,42,0.05)', fontFamily: 'inherit',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 10,
-                        background: color + '22',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-                      }}>
-                        {u.icon}
-                      </div>
-                      {data.length > 0
-                        ? <Sparkline data={data} color={color} width={50} height={20} />
-                        : <span style={{ fontSize: 11, color: T.charcoalLight, alignSelf: 'center' }}>—</span>
-                      }
-                    </div>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: T.charcoal, marginBottom: 2 }}>{u.name}</p>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-                      <span style={{ fontSize: 20, fontWeight: 700, color }}>
-                        {u.computedHealthScore ?? '—'}
-                      </span>
-                      {u.computedHealthScore !== null && (
-                        <span style={{ fontSize: 11, color: T.charcoalLight }}>/100</span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {!showCreate ? (
-              <button
-                onClick={() => setShowCreate(true)}
-                style={{
-                  width: '100%', background: 'transparent',
-                  border: `1.5px dashed ${T.sageMid}`, borderRadius: 16,
-                  padding: '12px 16px', color: T.charcoalLight, fontSize: 13,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                <Icon name="plus" size={14} color={T.charcoalLight} />
-                הוסף מטרייה
-              </button>
-            ) : (
-              <CreateForm
-                newName={newName} setNewName={setNewName}
-                newIcon={newIcon} setNewIcon={setNewIcon}
-                creating={creating} onCreate={handleCreate}
-                onCancel={() => { setShowCreate(false); setNewName(''); setNewIcon('🏠') }}
-              />
-            )}
-
-            {archivedCount > 0 && (
-              <button
-                onClick={() => navigate('archived')}
-                style={{
-                  display: 'block', margin: '12px auto 0', background: 'none', border: 'none',
-                  color: T.charcoalLight, fontSize: 12, cursor: 'pointer',
-                  fontFamily: 'inherit', textDecoration: 'underline',
-                }}
-              >
-                ארכיון ({archivedCount})
-              </button>
-            )}
-          </>
-        )}
-      </div>
     </div>
   )
 }
