@@ -20,13 +20,15 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**Dashboard redesign — active migration.** Phase 2A (real umbrella gallery) just landed. Phase 2B (wire real analytics into HeroChart) is next, followed by drill-down, chat panel, and responsive polish.
+**Dashboard redesign — active migration.** Phases 2A + 2B are shipped. HeroChart now shows real analytics data across all 20 view combinations (4 granularities × 5 slices). Phase 3+ (drill-down, chat panel, responsive polish) is next.
 
 ---
 
 ## Recently shipped (last ~2 weeks)
 
-- **Dashboard Phase 2A (real umbrella gallery):** Gallery cards now show real umbrellas from the Zustand store (top-level only). Each card maps umbrella name → `umbrellaColor()`, `computedHealthScore` (null renders as "—"), `computedTrend` sparkline, and a Hebrew relative-time string from `updatedAt`. Card click navigates to UmbrellaDetail. Empty state with "create first umbrella" prompt. Server `umbrellaShape` updated to return `updatedAt`. HeroChart still on mock data (Phase 2B).
+- **Dashboard Phase 2B (real analytics in HeroChart):** New `GET /api/analytics/timeseries?slice&granularity` endpoint backed by `server/src/lib/timeseries.ts`. Implements all 20 view combinations: combo/stacked/question/goal/movingavg × day/week/month/year. HeroChart fetches real data via `getTimeseries()`, caches results per (slice, granularity) key in module memory, shows loading fade and Hebrew error/empty states. ComboChart updated to use new `TimeseriesResponse` type (no longer depends on MockData). Legend in stacked mode shows real umbrella names + colors. MockData import removed from HomeScreen.
+
+- **Dashboard Phase 2A (real umbrella gallery):** Gallery cards now show real umbrellas from the Zustand store (top-level only). Each card maps umbrella name → `umbrellaColor()`, `computedHealthScore` (null renders as "—"), `computedTrend` sparkline, and a Hebrew relative-time string from `updatedAt`. Card click navigates to UmbrellaDetail. Empty state with "create first umbrella" prompt. Server `umbrellaShape` updated to return `updatedAt`.
 
 - **Dashboard redesign Phase 1 (visual shell):** new HomeScreen with warm cream background (Sage palette). HeroChart card — eyebrow, score/delta/avg, time tabs (יום/שבוע/חודש/שנה), slice tabs (כללי/לפי מטריה/לפי שאלה/יעדים/ממוצע נע), SVG ComboChart (Catmull-Rom line + bars + hover tooltip + movingavg mode), legend. Umbrella gallery — container-query responsive grid, each card with icon + colored dot + Catmull-Rom sparkline + score + delta. Sandbox banner and archived link use real API. Phase 1: all mock data.
 
@@ -47,7 +49,6 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
-- **Dashboard Phase 2B:** wire real analytics into HeroChart score/trend series (currently all mock data).
 - **Dashboard Phases 3–6:** drill-down, chat panel, per-umbrella sparklines from real trends, full responsive/container-query polish.
 - **UmbrellaDetail.tsx refactor (#6 of code review):** 1,856-line component split into focused subcomponents under `client/src/components/umbrella/`. Code written, builds clean, but stuck uncommitted in a git worktree due to bridge flakiness. Pure refactor — zero behavior change.
 - **Minor debt (#7-8):** stray `console.log`s, `TODO/FIXME` comments to sweep. Optional.
