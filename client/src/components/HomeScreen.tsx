@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { C } from '../lib/dashboardTheme'
-import { MOCK_DATA } from './dashboard/MockData'
 import type { MockUmbrella } from './dashboard/MockData'
 import HeroChart from './dashboard/HeroChart'
 import DashUmbrellaCard from './dashboard/UmbrellaCard'
@@ -133,7 +132,7 @@ export default function HomeScreen({ navigate }: Props) {
       )}
 
       {/* ── Hero chart ───────────────────────────────────── */}
-      <HeroChart data={MOCK_DATA} colors={C} />
+      <HeroChart colors={C} />
 
       {/* ── Gallery ──────────────────────────────────────── */}
       <section className="mn-gallery-section">

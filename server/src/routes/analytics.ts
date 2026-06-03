@@ -5,6 +5,13 @@ import {
   getUmbrellaDailyTrend,
   getQuestionDailyTrend,
 } from '../lib/analytics.js'
+import {
+  getCombo,
+  getStacked,
+  getByQuestion,
+  getGoals,
+} from '../lib/timeseries.js'
+import type { Granularity } from '../lib/timeseries.js'
 import { getDb } from '../db/index.js'
 import { questionAnswers, umbrellaQuestions } from '../db/schema.js'
 
@@ -86,6 +93,37 @@ router.get('/questions/:id/multi-trend', async (req, res) => {
   } catch (err) {
     console.error('GET /api/analytics/questions/:id/multi-trend:', err)
     res.status(500).json({ error: 'Failed to compute multi-select trend' })
+  }
+})
+
+// GET /api/analytics/timeseries?slice=combo|stacked|question|goal|movingavg&granularity=day|week|month|year
+// Auth required (handled by middleware in index.ts for all /api/analytics routes).
+// movingavg returns the same data as combo — the client applies the moving-average smoothing on the line.
+router.get('/timeseries', async (req, res) => {
+  try {
+    const slice       = String(req.query.slice ?? 'combo')
+    const granularity = String(req.query.granularity ?? 'week') as Granularity
+
+    const VALID_SLICES = ['combo', 'stacked', 'question', 'goal', 'movingavg']
+    const VALID_GRANS  = ['day', 'week', 'month', 'year']
+
+    if (!VALID_SLICES.includes(slice) || !VALID_GRANS.includes(granularity)) {
+      res.status(400).json({ error: 'Invalid slice or granularity' })
+      return
+    }
+
+    let data
+    switch (slice) {
+      case 'stacked':              data = await getStacked(granularity); break
+      case 'question':             data = await getByQuestion();         break
+      case 'goal':                 data = await getGoals();              break
+      default: /* combo + movingavg */ data = await getCombo(granularity); break
+    }
+
+    res.json(data)
+  } catch (err) {
+    console.error('GET /api/analytics/timeseries:', err)
+    res.status(500).json({ error: 'Failed to compute timeseries' })
   }
 })
 

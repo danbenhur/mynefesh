@@ -1,12 +1,11 @@
 import { useRef, useState, useLayoutEffect } from 'react'
-import type { MockGranularity } from './MockData'
-import { UMBRELLA_DEFS } from './MockData'
+import type { TimeseriesResponse } from '../../lib/api'
 import type { DashColors } from '../../lib/dashboardTheme'
 
 export type ChartMode = 'combo' | 'stacked' | 'question' | 'goal' | 'movingavg'
 
 interface Props {
-  gran: MockGranularity
+  gran: TimeseriesResponse
   mode?: ChartMode
   colors: DashColors
   height?: number
@@ -84,7 +83,6 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
     setHoverIdx(Math.max(0, Math.min(n - 1, idx)))
   }
 
-  // Determine bar width
   const barW = n > 1 ? Math.max(2, (chartW / n) * 0.6) : 12
 
   const scores = points.map(p => p.score)
@@ -93,7 +91,6 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
   const linePts = avgScores.map((s, i) => ({ x: xOf(i), y: yOf(s) }))
   const linePath = catmullRomPath(linePts)
 
-  // Grid y values
   const gridLines = [25, 50, 75]
 
   const hi = hoverIdx ?? -1
@@ -130,23 +127,23 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
             const isProjected = i >= projection
             const alpha = isProjected ? 0.28 : 0.55
 
-            if (mode === 'stacked') {
-              // Stacked bars per umbrella
+            if (mode === 'stacked' && pt.segments && pt.segments.length > 0) {
               let cumY = padT + chartH
+              const n_segs = pt.segments.length
               return (
                 <g key={i}>
-                  {UMBRELLA_DEFS.map((u, ui) => {
-                    const barH = Math.max(1, (pt.bars[ui] / 100) * chartH / UMBRELLA_DEFS.length)
+                  {pt.segments.map((seg, si) => {
+                    const barH = Math.max(1, (seg.value / 100) * chartH / n_segs)
                     const rectY = cumY - barH
                     cumY = rectY
                     return (
                       <rect
-                        key={ui}
+                        key={si}
                         x={cx - barW / 2}
                         y={rectY}
                         width={barW}
                         height={barH}
-                        fill={u.color}
+                        fill={seg.color}
                         opacity={isProjected ? 0.3 : 0.7}
                         rx={1}
                       />
@@ -156,7 +153,7 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
               )
             }
 
-            // combo / question / goal: single bar = score
+            // combo / question / goal / movingavg: single bar = score
             const barH = Math.max(2, (pt.score / 100) * chartH)
             const barY = yOf(pt.score)
             return (
@@ -184,7 +181,6 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* Dots at each point — only show on hover or sparse data */}
               {n <= 12 && linePts.map((pt, i) => (
                 <circle key={i} cx={pt.x} cy={pt.y} r={2.5} fill={colors.line} opacity={0.7} />
               ))}
@@ -201,7 +197,6 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
                 strokeDasharray="4 3"
               />
               <circle cx={tipX} cy={tipY} r={4} fill={colors.line} />
-              {/* Tooltip box */}
               {(() => {
                 const boxW = 90
                 const boxH = 52
@@ -230,7 +225,7 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
             </>
           )}
 
-          {/* X-axis labels (sparse — every Nth) */}
+          {/* X-axis labels (sparse) */}
           {(() => {
             const step = n <= 12 ? 1 : n <= 30 ? 5 : 3
             return points
@@ -239,8 +234,9 @@ export default function ComboChart({ gran, mode = 'combo', colors, height = 130 
                 const origIdx = points.indexOf(pt)
                 if (origIdx < 0) return null
                 const x = xOf(origIdx)
-                // skip if too close to previous rendered label
-                const prevX = arr[arr.indexOf(pt) - 1] ? xOf(points.indexOf(arr[arr.indexOf(pt) - 1])) : -999
+                const prevX = arr[arr.indexOf(pt) - 1]
+                  ? xOf(points.indexOf(arr[arr.indexOf(pt) - 1]))
+                  : -999
                 if (x - prevX < 28) return null
                 return (
                   <text

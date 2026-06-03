@@ -319,3 +319,31 @@ export const getResolutionProgress = (id: string) =>
 
 export const abandonResolution = (id: string) =>
   req<ApiResolution>(`/api/resolutions/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'abandoned' }) })
+
+// ── Timeseries (HeroChart) ────────────────────────────────────────────────────
+
+export type TimeseriesSlice = 'combo' | 'stacked' | 'question' | 'goal' | 'movingavg'
+export type TimeseriesGranularity = 'day' | 'week' | 'month' | 'year'
+
+export interface ChartSegment {
+  umbrellaId: string
+  name: string
+  color: string
+  value: number
+}
+
+export interface TimeseriesPoint {
+  label: string
+  score: number
+  bars: number
+  segments?: ChartSegment[]
+}
+
+export interface TimeseriesResponse {
+  points: TimeseriesPoint[]
+  projection: number
+  umbrellas?: Array<{ id: string; name: string; color: string }>
+}
+
+export const getTimeseries = (slice: TimeseriesSlice, granularity: TimeseriesGranularity) =>
+  req<TimeseriesResponse>(`/api/analytics/timeseries?slice=${slice}&granularity=${granularity}`)
