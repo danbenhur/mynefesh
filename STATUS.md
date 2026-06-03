@@ -20,11 +20,13 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**Dashboard redesign — active migration.** Phases 2A + 2B are shipped. HeroChart now shows real analytics data across all 20 view combinations (4 granularities × 5 slices). Phase 3+ (drill-down, chat panel, responsive polish) is next.
+**Dashboard redesign — active migration.** Phases 2A + 2B and Phase 3 (chat panel) are shipped. Phase 4+ (InterviewScreen, ProfileScreen, UmbrellaDetail visual alignment) is next.
 
 ---
 
 ## Recently shipped (last ~2 weeks)
+
+- **Dashboard Phase 3 (chat panel redesign):** ChatScreen visually aligned with the new design system. Imports `C` tokens from `dashboardTheme.ts` and `dashboard.css`. New `.mn-chat-*` CSS classes in `dashboard.css` (no parallel stylesheet). Warm cream bg → surface header/input-bar → card bubbles hierarchy. Assistant bubbles: white card with `C.border` border and soft shadow. User bubbles: sage green tint (12% opacity fill, 30% border). Empty state: avatar + Hebrew headline + body. Textarea input (auto-grow, max 120px) with active send button (solid sage when text is present, mic icon otherwise). Streaming cursor: small blinking sage dot at the end of the live assistant bubble. Bug fixed: empty assistant placeholder was double-rendering alongside typing dots — now suppressed in the message map.
 
 - **Dashboard Phase 2B (real analytics in HeroChart):** New `GET /api/analytics/timeseries?slice&granularity` endpoint backed by `server/src/lib/timeseries.ts`. Implements all 20 view combinations: combo/stacked/question/goal/movingavg × day/week/month/year. HeroChart fetches real data via `getTimeseries()`, caches results per (slice, granularity) key in module memory, shows loading fade and Hebrew error/empty states. ComboChart updated to use new `TimeseriesResponse` type (no longer depends on MockData). Legend in stacked mode shows real umbrella names + colors. MockData import removed from HomeScreen.
 
@@ -49,7 +51,7 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
-- **Dashboard Phases 3–6:** drill-down, chat panel, per-umbrella sparklines from real trends, full responsive/container-query polish.
+- **Dashboard Phases 4–6:** InterviewScreen, ProfileScreen, UmbrellaDetail visual alignment with new design system; drill-down, per-umbrella sparklines from real trends, full responsive/container-query polish.
 - **UmbrellaDetail.tsx refactor (#6 of code review):** 1,856-line component split into focused subcomponents under `client/src/components/umbrella/`. Code written, builds clean, but stuck uncommitted in a git worktree due to bridge flakiness. Pure refactor — zero behavior change.
 - **Minor debt (#7-8):** stray `console.log`s, `TODO/FIXME` comments to sweep. Optional.
 
