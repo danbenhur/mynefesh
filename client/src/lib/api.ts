@@ -44,6 +44,7 @@ export interface ApiUmbrella {
   notes: string[]
   position: number
   archivedAt: string | null
+  updatedAt: string
   tasks: ApiTask[]
   reminders: ApiReminder[]
   history: ApiHealthSnapshot[]

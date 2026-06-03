@@ -43,6 +43,7 @@ export interface Umbrella {
   children: Umbrella[]
   history: HealthSnapshot[]
   archivedAt: string | null
+  updatedAt?: string
   computedTrend: number[]  // daily scores 0-100, from analytics, may be empty
 }
 

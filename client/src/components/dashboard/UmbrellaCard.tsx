@@ -36,7 +36,7 @@ export default function DashUmbrellaCard({ umbrella, colors, onClick }: Props) {
       <p className="mn-ucard-name" style={{ color: colors.ink }}>{he}</p>
 
       <div className="mn-ucard-bottom">
-        <span className="mn-ucard-score" style={{ color }}>{score}</span>
+        <span className="mn-ucard-score" style={{ color }}>{score ?? '—'}</span>
         <span className="mn-ucard-denom">/100</span>
         <span className={`mn-ucard-delta ${deltaClass}`}>{deltaLabel}</span>
       </div>

@@ -33,7 +33,7 @@ export interface MockUmbrella {
   he: string
   color: string
   iconKey: string
-  score: number
+  score: number | null
   delta: number
   updated: string
   spark: number[]   // 8 data points

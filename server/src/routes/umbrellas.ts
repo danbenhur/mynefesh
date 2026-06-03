@@ -59,6 +59,7 @@ function umbrellaShape(
     notes: u.notes,
     position: u.position,
     archivedAt: u.archivedAt ? u.archivedAt.toISOString() : null,
+    updatedAt: u.updatedAt.toISOString(),
     tasks: uTasks.map(taskShape),
     reminders: uReminders.map(reminderShape),
     history: uHistory.map(historyShape),

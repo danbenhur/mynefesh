@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { C } from '../lib/dashboardTheme'
 import { MOCK_DATA } from './dashboard/MockData'
+import type { MockUmbrella } from './dashboard/MockData'
 import HeroChart from './dashboard/HeroChart'
 import DashUmbrellaCard from './dashboard/UmbrellaCard'
 import { getSandboxStatus, markSandboxJoined, listArchivedUmbrellas } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
+import { useStore } from '../store/useStore'
+import { umbrellaColor } from '../lib/theme'
 import './dashboard/dashboard.css'
 
 function hebrewGreeting(): string {
@@ -23,6 +26,20 @@ function dateString(): string {
   return `יום ${DAYS[now.getDay()]}, ${now.getDate()} ב${MONTHS[now.getMonth()]}`
 }
 
+function formatRelativeHe(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(ms / 60_000)
+  if (mins < 2)  return 'עכשיו'
+  if (mins < 60) return `לפני ${mins} דקות`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)  return `לפני ${hrs === 1 ? 'שעה' : hrs + ' שעות'}`
+  const days = Math.floor(hrs / 24)
+  if (days === 1) return 'אתמול'
+  if (days < 7)  return `לפני ${days} ימים`
+  if (days < 14) return 'לפני שבוע'
+  return `לפני ${Math.floor(days / 7)} שבועות`
+}
+
 interface Props {
   navigate: NavigateFn
 }
@@ -31,6 +48,22 @@ export default function HomeScreen({ navigate }: Props) {
   const [sandboxExpired, setSandboxExpired]   = useState(false)
   const [markingJoined, setMarkingJoined]     = useState(false)
   const [archivedCount, setArchivedCount]     = useState(0)
+
+  const storeUmbrellas = useStore(s => s.umbrellas)
+  const addUmbrella    = useStore(s => s.addUmbrella)
+
+  const topLevel = storeUmbrellas.filter(u => u.parentId === null)
+
+  const galleryUmbrellas: MockUmbrella[] = topLevel.map(u => ({
+    key:     u.id,
+    he:      u.name,
+    color:   umbrellaColor(u.name),
+    iconKey: 'umbrella',
+    score:   u.computedHealthScore,
+    delta:   0,
+    updated: u.updatedAt ? formatRelativeHe(u.updatedAt) : '',
+    spark:   u.computedTrend.slice(-8),
+  }))
 
   useEffect(() => {
     getSandboxStatus()
@@ -51,6 +84,11 @@ export default function HomeScreen({ navigate }: Props) {
     } finally {
       setMarkingJoined(false)
     }
+  }
+
+  async function handleCreateFirst() {
+    const name = window.prompt('שם המטרייה:')
+    if (name?.trim()) await addUmbrella(name.trim(), '☂️')
   }
 
   return (
@@ -101,21 +139,40 @@ export default function HomeScreen({ navigate }: Props) {
       <section className="mn-gallery-section">
         <div className="mn-gallery-header">
           <h2>המטריות שלי</h2>
-          <span className="mn-gallery-count">{MOCK_DATA.umbrellas.length}</span>
+          <span className="mn-gallery-count">{topLevel.length}</span>
         </div>
 
-        <div className="mn-gallery-wrap">
-          <div className="mn-gallery-grid">
-            {MOCK_DATA.umbrellas.map(u => (
-              <DashUmbrellaCard
-                key={u.key}
-                umbrella={u}
-                colors={C}
-                onClick={undefined}
-              />
-            ))}
+        {topLevel.length === 0 ? (
+          <div style={{
+            textAlign: 'center', padding: '32px 16px',
+            color: C.muted, fontSize: 14,
+          }}>
+            <p style={{ marginBottom: 16 }}>עוד לא הוספת מטריות</p>
+            <button
+              onClick={handleCreateFirst}
+              style={{
+                background: C.bar, border: 'none', borderRadius: 12,
+                padding: '10px 20px', fontSize: 14, fontWeight: 600,
+                color: '#fff', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              + צור מטרייה ראשונה
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="mn-gallery-wrap">
+            <div className="mn-gallery-grid">
+              {galleryUmbrellas.map(u => (
+                <DashUmbrellaCard
+                  key={u.key}
+                  umbrella={u}
+                  colors={C}
+                  onClick={() => navigate('umbrella', { umbrellaId: u.key })}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Archived link — real data */}
         {archivedCount > 0 && (
