@@ -1,12 +1,11 @@
-import { useState } from 'react'
-import { T } from '../../lib/theme'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { C } from '../../lib/dashboardTheme'
 import Sparkline from '../Sparkline'
 import Icon from '../Icon'
 import { createQuestion, updateQuestion, deleteQuestion } from '../../lib/api'
 import type { ApiQuestionTrendPoint, ApiMultiTrendPoint } from '../../lib/api'
 import type { Question } from '../../types/umbrella'
 import {
-  CADENCE_COLOR,
   DEFAULT_FORM,
   type FormState,
   cadenceLabel,
@@ -14,6 +13,74 @@ import {
   formToPayload,
 } from './shared'
 import { QuestionForm } from './QuestionForm'
+
+function typeAbbrev(q: Question): string {
+  switch (q.answerType) {
+    case 'scale': return `${q.scaleMin ?? 1}-${q.scaleMax ?? 5}`
+    case 'boolean': return 'כן/לא'
+    case 'boolean_partial': return 'כן/לא/חלקית'
+    case 'multi_select': return `בחירה מרובה (${q.options?.length ?? 0})`
+    default: return q.answerType
+  }
+}
+
+function renderQRight(
+  q: Question,
+  trends: Record<string, ApiQuestionTrendPoint[]>,
+  multi: Record<string, ApiMultiTrendPoint[]>,
+  color: string
+): ReactNode {
+  if (q.answerType === 'text') {
+    const latest = (trends[q.id] ?? []).at(-1)
+    if (!latest?.answerText)
+      return <span className="mn-umbrella-q-no-data">אין תשובות עדיין</span>
+    return <span className="mn-umbrella-q-text-answer">{latest.answerText.slice(0, 24)}</span>
+  }
+  if (q.answerType === 'multi_select') {
+    const pts = multi[q.id] ?? []
+    if (pts.length === 0)
+      return <span className="mn-umbrella-q-no-data">אין תשובות עדיין</span>
+    const top = [...pts].sort((a, b) => b.total - a.total).slice(0, 2)
+    return (
+      <div className="mn-umbrella-q-chips">
+        {top.map(p => <span key={p.option} className="mn-umbrella-q-chip">{p.option}</span>)}
+      </div>
+    )
+  }
+  const pts = trends[q.id] ?? []
+  const latest = pts.at(-1)
+  const sparkData = pts
+    .filter(p => p.value !== null)
+    .map(p => Math.round((p.value ?? 0) * 100))
+  if (!latest)
+    return (
+      <div className="mn-umbrella-q-spark-empty">
+        <span className="mn-umbrella-q-no-data">אין תשובות עדיין</span>
+      </div>
+    )
+  const latestNode = (() => {
+    if (latest.answerBoolean) {
+      const map = {
+        yes:     { sym: '✓', col: C.good },
+        no:      { sym: '✗', col: C.low },
+        partial: { sym: '◐', col: C.mid },
+      } as const
+      const m = map[latest.answerBoolean as keyof typeof map]
+      return m ? <span style={{ color: m.col }}>{m.sym}</span> : null
+    }
+    if (latest.answerScale !== null) return `${latest.answerScale}/${q.scaleMax ?? 5}`
+    if (latest.value !== null) return `${Math.round(latest.value * 100)}%`
+    return '—'
+  })()
+  return (
+    <div className="mn-umbrella-q-spark-wrap">
+      {sparkData.length > 0 &&
+        <Sparkline data={sparkData} color={color} width={52} height={22} />
+      }
+      <span className="mn-umbrella-q-latest" style={{ color }}>{latestNode}</span>
+    </div>
+  )
+}
 
 interface Props {
   umbrellaId: string
@@ -40,6 +107,19 @@ export function QuestionsSection({
   const [editForm, setEditForm] = useState<FormState>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [qMenuId, setQMenuId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close kebab menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) {
+        setQMenuId(null)
+      }
+    }
+    if (qMenuId) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [qMenuId])
 
   async function handleAdd() {
     if (!addForm.text.trim()) return
@@ -78,259 +158,140 @@ export function QuestionsSection({
     setConfirmDeleteId(null)
   }
 
-  const regularQs = questions.filter(q => q.answerType !== 'multi_select' && (questionTrends[q.id]?.length ?? 0) > 0)
-  const multiQs = questions.filter(q => q.answerType === 'multi_select' && (multiTrends[q.id]?.some(p => p.total > 0)))
-
   return (
-    <>
-      {/* Questions list */}
-      <div style={{ marginTop: 24 }} dir="rtl">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal }}>שאלות</p>
-          {!loadingQ && (
-            <span style={{ fontSize: 11, color: T.charcoalLight }}>
-              {questions.length} שאלות
-            </span>
-          )}
-        </div>
-
-        {loadingQ && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
-            <div style={{
-              width: 20, height: 20, border: `2px solid ${T.sage}`,
-              borderTopColor: 'transparent', borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }} />
-          </div>
-        )}
-
-        {!loadingQ && questions.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-            {questions.map(q => (
-              <div key={q.id}>
-                {editingId === q.id ? (
-                  <QuestionForm
-                    form={editForm}
-                    onChange={setEditForm}
-                    onSave={handleEdit}
-                    onCancel={() => setEditingId(null)}
-                    saving={saving}
-                  />
-                ) : confirmDeleteId === q.id ? (
-                  <div style={{
-                    background: T.bgCard, borderRadius: 14, padding: '12px 14px',
-                    boxShadow: '0 1px 6px rgba(44,44,42,0.06)',
-                    border: `1px solid ${T.red}22`,
-                  }}>
-                    <p style={{ fontSize: 13, color: T.charcoal, marginBottom: 10 }}>
-                      למחוק את השאלה "{q.text}"?
-                    </p>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        onClick={() => handleDelete(q.id)}
-                        style={{
-                          flex: 1, background: T.red, color: '#fff', borderRadius: 8,
-                          border: 'none', padding: '7px 0', fontSize: 12, fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'inherit',
-                        }}
-                      >
-                        מחק
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        style={{
-                          flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 8,
-                          border: 'none', padding: '7px 0', fontSize: 12, fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'inherit',
-                        }}
-                      >
-                        ביטול
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{
-                    background: T.bgCard, borderRadius: 14, padding: '12px 14px',
-                    boxShadow: '0 1px 6px rgba(44,44,42,0.05)',
-                    display: 'flex', alignItems: 'flex-start', gap: 10,
-                    opacity: q.enabled ? 1 : 0.5,
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, color: T.charcoal, lineHeight: 1.4, marginBottom: 6 }}>
-                        {q.text}
-                      </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{
-                          display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                          background: CADENCE_COLOR[q.cadence] + '20',
-                          color: CADENCE_COLOR[q.cadence],
-                          fontSize: 11, fontWeight: 600,
-                        }}>
-                          {cadenceLabel(q)}
-                        </span>
-                        {q.answerType !== 'text' && (
-                          <span style={{
-                            display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                            background: T.charcoalLight + '20', color: T.charcoalLight,
-                            fontSize: 11, fontWeight: 600,
-                          }}>
-                            {q.answerType === 'scale'
-                              ? `${q.scaleMin ?? 1}-${q.scaleMax ?? 5}`
-                              : q.answerType === 'boolean'
-                                ? 'כן/לא'
-                                : q.answerType === 'boolean_partial'
-                                  ? 'כן/לא/חלקית'
-                                  : q.answerType === 'multi_select'
-                                    ? `בחירה מרובה (${q.options?.length ?? 0})`
-                                    : q.answerType}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                      <button
-                        onClick={() => startEdit(q)}
-                        style={{
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          fontSize: 11, color: T.blue, fontWeight: 600, fontFamily: 'inherit',
-                          padding: '4px 6px',
-                        }}
-                      >
-                        ערוך
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(q.id)}
-                        style={{
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          fontSize: 11, color: T.red, fontWeight: 600, fontFamily: 'inherit',
-                          padding: '4px 6px',
-                        }}
-                      >
-                        מחק
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!loadingQ && questions.length === 0 && !showAddForm && (
-          <p style={{ fontSize: 12, color: T.charcoalLight, fontStyle: 'italic', marginBottom: 10, textAlign: 'center' }}>
-            אין שאלות עדיין. הוסף שאלות לצ׳ק-אין היומי שלך.
-          </p>
-        )}
-
-        {showAddForm ? (
-          <QuestionForm
-            form={addForm}
-            onChange={setAddForm}
-            onSave={handleAdd}
-            onCancel={() => { setShowAddForm(false); setAddForm(DEFAULT_FORM) }}
-            saving={saving}
-          />
-        ) : (
-          <button
-            onClick={() => { setShowAddForm(true); setEditingId(null) }}
-            style={{
-              width: '100%', background: 'transparent',
-              border: `1.5px dashed ${T.sageMid}`, borderRadius: 14,
-              padding: '10px 16px', color: T.charcoalLight, fontSize: 13,
-              cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
-          >
-            <Icon name="plus" size={14} color={T.charcoalLight} />
-            הוסף שאלה
-          </button>
-        )}
+    <div className="mn-umbrella-section" dir="rtl">
+      <div className="mn-umbrella-section-header-row">
+        <span className="mn-umbrella-section-eyebrow">שאלות</span>
+        {!loadingQ && questions.length > 0 &&
+          <span className="mn-gallery-count">{questions.length}</span>
+        }
       </div>
 
-      {/* Per-question trends */}
-      {(regularQs.length > 0 || multiQs.length > 0) && (
-        <div dir="rtl" style={{ marginTop: 24 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: T.charcoal, marginBottom: 10 }}>מגמות לפי שאלה</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {regularQs.map(q => {
-              const pts = questionTrends[q.id] ?? []
-              const latest = pts[pts.length - 1]
-              const sparkData = pts
-                .filter(p => p.value !== null)
-                .map(p => Math.round((p.value ?? 0) * 100))
-              const latestDisplay = (() => {
-                if (!latest) return '—'
-                if (latest.answerBoolean) {
-                  const HE: Record<string, string> = { yes: 'כן', no: 'לא', partial: 'חלקית' }
-                  return HE[latest.answerBoolean] ?? latest.answerBoolean
-                }
-                if (latest.answerScale !== null) return String(latest.answerScale)
-                if (latest.answerText) return latest.answerText.slice(0, 18)
-                if (latest.value !== null) return `${Math.round(latest.value * 100)}%`
-                return '—'
-              })()
-              return (
-                <div
-                  key={q.id}
-                  style={{
-                    background: T.bgCard, borderRadius: 14, padding: '10px 14px',
-                    boxShadow: '0 1px 4px rgba(44,44,42,0.05)',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, color: T.charcoal, lineHeight: 1.4 }}>{q.text}</p>
-                  </div>
-                  {sparkData.length > 0 && (
-                    <Sparkline data={sparkData} color={color} width={50} height={20} />
-                  )}
-                  <span style={{
-                    fontSize: 12, fontWeight: 700, color, flexShrink: 0,
-                    minWidth: 28, textAlign: 'center',
-                  }}>
-                    {latestDisplay}
-                  </span>
-                </div>
-              )
-            })}
-            {multiQs.map(q => {
-              const pts = multiTrends[q.id] ?? []
-              const maxTotal = Math.max(...pts.map(p => p.total), 1)
-              return (
-                <div
-                  key={q.id}
-                  style={{
-                    background: T.bgCard, borderRadius: 14, padding: '10px 14px',
-                    boxShadow: '0 1px 4px rgba(44,44,42,0.05)',
-                  }}
-                >
-                  <p style={{ fontSize: 12, color: T.charcoal, lineHeight: 1.4, marginBottom: 8 }}>{q.text}</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {pts.map(p => (
-                      <div key={p.option} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 11, color: T.charcoalLight, minWidth: 80, textAlign: 'right' }}>
-                          {p.option}
-                        </span>
-                        <div style={{ flex: 1, height: 10, background: T.sageLight, borderRadius: 5, overflow: 'hidden' }}>
-                          <div style={{
-                            height: '100%', borderRadius: 5,
-                            width: `${Math.round((p.total / maxTotal) * 100)}%`,
-                            background: color,
-                            transition: 'width 0.4s ease',
-                          }} />
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 20, textAlign: 'center' }}>
-                          {p.total}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+      {loadingQ && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0' }}>
+          <div style={{
+            width: 20, height: 20, border: `2px solid ${C.bar}`,
+            borderTopColor: 'transparent', borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }} />
         </div>
       )}
-    </>
+
+      {!loadingQ && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+          {questions.map(q => (
+            <div key={q.id}>
+              {editingId === q.id ? (
+                <QuestionForm
+                  form={editForm}
+                  onChange={setEditForm}
+                  onSave={handleEdit}
+                  onCancel={() => setEditingId(null)}
+                  saving={saving}
+                />
+              ) : confirmDeleteId === q.id ? (
+                <div style={{
+                  background: C.card, borderRadius: 14, padding: '12px 14px',
+                  border: `1px solid ${C.low}26`,
+                }}>
+                  <p style={{ fontSize: 13, color: C.ink, marginBottom: 10 }}>
+                    למחוק את השאלה "{q.text}"?
+                  </p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => handleDelete(q.id)}
+                      style={{
+                        flex: 1, background: C.low, color: '#fff', borderRadius: 8,
+                        border: 'none', padding: '7px 0', fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      מחק
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      style={{
+                        flex: 1, background: C.faint, color: C.muted, borderRadius: 8,
+                        border: 'none', padding: '7px 0', fontSize: 12, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      ביטול
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mn-umbrella-q-card" style={{ opacity: q.enabled ? 1 : 0.5 }}>
+                  <div className="mn-umbrella-q-main">
+                    <div className="mn-umbrella-q-text-col">
+                      <p className="mn-umbrella-q-text">{q.text}</p>
+                      <div className="mn-umbrella-q-pills">
+                        <span className="mn-umbrella-q-pill">{cadenceLabel(q)}</span>
+                        {q.answerType !== 'text' &&
+                          <span className="mn-umbrella-q-pill">{typeAbbrev(q)}</span>
+                        }
+                      </div>
+                    </div>
+                    <div className="mn-umbrella-q-right-col">
+                      {renderQRight(q, questionTrends, multiTrends, color)}
+                    </div>
+                    <div className="mn-umbrella-q-kebab-wrap" ref={qMenuId === q.id ? menuRef : undefined}>
+                      <button
+                        className="mn-umbrella-q-kebab"
+                        onClick={() => setQMenuId(id => id === q.id ? null : q.id)}
+                      >
+                        ⋮
+                      </button>
+                      {qMenuId === q.id && (
+                        <div className="mn-umbrella-q-menu">
+                          <button
+                            className="mn-umbrella-q-menu-item"
+                            onClick={() => { startEdit(q); setQMenuId(null) }}
+                          >
+                            עריכה
+                          </button>
+                          <button
+                            className="mn-umbrella-q-menu-item danger"
+                            onClick={() => { setConfirmDeleteId(q.id); setQMenuId(null) }}
+                          >
+                            מחיקה
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loadingQ && questions.length === 0 && !showAddForm && (
+        <p style={{ fontSize: 12, color: C.muted, fontStyle: 'italic', marginBottom: 10, textAlign: 'center' }}>
+          אין שאלות עדיין. הוסף שאלות לצ׳ק-אין היומי שלך.
+        </p>
+      )}
+
+      {showAddForm ? (
+        <QuestionForm
+          form={addForm}
+          onChange={setAddForm}
+          onSave={handleAdd}
+          onCancel={() => { setShowAddForm(false); setAddForm(DEFAULT_FORM) }}
+          saving={saving}
+        />
+      ) : (
+        <button
+          className="mn-umbrella-q-add-btn"
+          onClick={() => { setShowAddForm(true); setEditingId(null) }}
+        >
+          <Icon name="plus" size={14} color="rgba(44,44,42,0.52)" />
+          + הוספת שאלה
+        </button>
+      )}
+
+      {/* Per-question trends section deleted — sparklines now integrated into each question card */}
+    </div>
   )
 }
