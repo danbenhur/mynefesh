@@ -135,6 +135,12 @@ whatsapp_session       ← one row per calendar date
   snooze_count, last_message_at, next_send_at
 
 user_sessions          ← managed by connect-pg-simple
+
+api_usage              ← spend-protection log (migration 0014)
+  id (uuid), kind ('anthropic'|'sms'), user_id (text, nullable),
+  occurred_at (timestamptz), day_utc (date),
+  input_tokens (int, nullable), output_tokens (int, nullable),
+  cost_usd (numeric(10,4), nullable)
 ```
 
 **Key schema facts:**
@@ -456,6 +462,73 @@ A desync will now fail the Render build before it can reach the server.
    - Never add a `.sql` file to `drizzle/` manually without a matching journal entry.
    - `npm run build` runs `scripts/check-migrations.ts` first; it fails if `.sql` files and the journal are out of sync.
    - The migration seeder (`lib/migration-seeder.ts`) marks ALL current journal entries as applied for existing DBs that have no migration-tracking table. New migrations (beyond the current journal) are applied by Drizzle's `migrate()` on next startup.
+
+---
+
+## Spend Protection
+
+Added in June 2026 before opening the app to invited users. All cost surfaces have hard ceilings configurable via env vars.
+
+### Env vars (all have safe defaults)
+
+| Var | Default | Purpose |
+|---|---|---|
+| `DAILY_API_BUDGET_USD` | `5` | Max Anthropic API spend per UTC day; chat returns 429 if exceeded |
+| `DAILY_SMS_LIMIT` | `50` | Max outbound SMS/WhatsApp messages per UTC day; sends are suppressed (not retried) |
+| (none) | 5 msg/hr | Per-user AI chat rate limit — in-memory constant in `server/src/routes/chat.ts` |
+
+### `api_usage` table (migration 0014)
+
+Shared spend-tracking log for all billable surfaces.
+
+```
+api_usage
+  id           uuid pk
+  kind         text NOT NULL     -- 'anthropic' | 'sms'
+  user_id      text              -- Google profile ID; nullable (FK-ready for multi-tenancy)
+  occurred_at  timestamptz       -- defaults to NOW()
+  day_utc      date NOT NULL     -- denormalized UTC day for fast aggregation
+  input_tokens int               -- populated for kind='anthropic', NULL for 'sms'
+  output_tokens int              -- same
+  cost_usd     numeric(10,4)     -- same
+```
+
+Indexes: `idx_api_usage_day_utc` (day_utc), `idx_api_usage_kind_day` (kind, day_utc).
+
+### Hebrew error messages
+
+- Rate limit exceeded: `הגעת למגבלת ההודעות לשעה. נסה שוב בעוד X דקות.`
+- Daily budget exhausted: `מנת השימוש היומית מוצתה.`
+
+Both return HTTP 429 JSON `{ error: "..." }`.
+
+### Monitoring queries (run in Neon console)
+
+```sql
+-- Today's Anthropic spend (UTC)
+SELECT COALESCE(SUM(cost_usd), 0) AS spend_usd, COUNT(*) AS calls
+FROM api_usage WHERE kind = 'anthropic' AND day_utc = CURRENT_DATE;
+
+-- Today's SMS count
+SELECT COUNT(*) AS sms_sent FROM api_usage
+WHERE kind = 'sms' AND day_utc = CURRENT_DATE;
+
+-- Last 7 days Anthropic spend by day
+SELECT day_utc, SUM(cost_usd) AS spend_usd, COUNT(*) AS calls
+FROM api_usage WHERE kind = 'anthropic' AND day_utc >= CURRENT_DATE - 7
+GROUP BY day_utc ORDER BY day_utc DESC;
+```
+
+### Rate limit semantics
+
+- **Sliding window** — timestamps of the last N messages kept in a Map in process memory.
+- **Resets on server restart** — Render restarts are infrequent; acceptable trade-off vs adding Redis.
+- **Scoped by `req.user.id`** (Google profile ID) — naturally multi-tenant when that migration lands.
+- Limit constant lives at the top of `server/src/routes/chat.ts` (`CHAT_RATE_LIMIT = 5`).
+
+### Pricing constants
+
+`server/src/lib/pricing.ts` — `calculateClaudeCost(inputTokens, outputTokens)` using `claude-sonnet-4-6` rates ($3/MTok input, $15/MTok output). Update when model or pricing changes.
 
 ---
 

@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date, doublePrecision, jsonb, index } from 'drizzle-orm/pg-core'
+import { pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date, doublePrecision, jsonb, index, numeric } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
@@ -158,3 +158,20 @@ export const chatMessages = pgTable('chat_messages', {
   content: text('content').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
+
+// Spend-tracking table shared by all billable surfaces.
+// kind = 'anthropic' → token fields populated; kind = 'sms' → token fields null.
+// user_id is nullable now (single-user app) but FK-ready for multi-tenancy.
+export const apiUsage = pgTable('api_usage', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  kind: text('kind').notNull(), // 'anthropic' | 'sms'
+  userId: text('user_id'),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).defaultNow().notNull(),
+  dayUtc: date('day_utc').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  costUsd: numeric('cost_usd', { precision: 10, scale: 4 }),
+}, (t) => ({
+  dayUtcIdx: index('idx_api_usage_day_utc').on(t.dayUtc),
+  kindDayIdx: index('idx_api_usage_kind_day').on(t.kind, t.dayUtc),
+}))

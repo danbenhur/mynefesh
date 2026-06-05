@@ -1,13 +1,49 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { desc, ne, asc } from 'drizzle-orm'
+import { desc, ne, asc, sql } from 'drizzle-orm'
 import Anthropic from '@anthropic-ai/sdk'
 import { getDb } from '../db/index.js'
-import { chatMessages, umbrellas, tasks, reminders } from '../db/schema.js'
+import { chatMessages, umbrellas, tasks, reminders, apiUsage } from '../db/schema.js'
 import { getAllUmbrellaHealthScores } from '../lib/analytics.js'
+import { calculateClaudeCost } from '../lib/pricing.js'
 
 const router = Router()
 const client = new Anthropic()
+
+// --- Spend-protection constants (tune via env vars) ---
+const CHAT_RATE_LIMIT = 5 // max messages per user per sliding hour window
+const DAILY_API_BUDGET_USD = parseFloat(process.env.DAILY_API_BUDGET_USD ?? '5')
+
+// In-memory sliding-window rate limiter (resets on server restart — acceptable for Render)
+const userMessageTimestamps = new Map<string, number[]>()
+
+function checkRateLimit(userId: string): { allowed: boolean; retryAfterMin?: number } {
+  const now = Date.now()
+  const windowMs = 60 * 60 * 1000
+  const prev = (userMessageTimestamps.get(userId) ?? []).filter(t => now - t < windowMs)
+
+  if (prev.length >= CHAT_RATE_LIMIT) {
+    const oldest = Math.min(...prev)
+    const retryAfterMin = Math.ceil((oldest + windowMs - now) / 60_000)
+    return { allowed: false, retryAfterMin }
+  }
+
+  prev.push(now)
+  userMessageTimestamps.set(userId, prev)
+  return { allowed: true }
+}
+
+async function getTodayApiSpend(): Promise<number> {
+  try {
+    const db = getDb()
+    const result = await db.execute(
+      sql`SELECT COALESCE(SUM(cost_usd), 0)::float AS total FROM api_usage WHERE kind = 'anthropic' AND day_utc = CURRENT_DATE`
+    )
+    return parseFloat(String(result.rows[0]?.total ?? '0'))
+  } catch {
+    return 0 // fail open when DB is unavailable
+  }
+}
 
 const BASE_SYSTEM = `You are Dan's personal life-management AI — a proactive, caring secretary for his myNefesh app. You help him track and improve his life "umbrellas": areas of life like People, Money, Kids, Spirituality, Health, and any others he creates.
 
@@ -141,14 +177,30 @@ router.post('/', async (req, res) => {
     return
   }
 
-  // The client sends its local message array; we only need the latest user turn.
-  // History is sourced from the DB so it stays authoritative across sessions.
   const currentUserContent = messages.at(-1)?.content ?? ''
   if (!currentUserContent) {
     res.status(400).json({ error: 'no user message found' })
     return
   }
 
+  // Cap 1: per-user sliding-window rate limit (in-memory)
+  const userId = req.user?.id ?? 'anonymous'
+  const rateCheck = checkRateLimit(userId)
+  if (!rateCheck.allowed) {
+    res.status(429).json({
+      error: `הגעת למגבלת ההודעות לשעה. נסה שוב בעוד ${rateCheck.retryAfterMin} דקות.`,
+    })
+    return
+  }
+
+  // Cap 2: daily Anthropic API budget (DB query, fail open)
+  const todaySpend = await getTodayApiSpend()
+  if (todaySpend >= DAILY_API_BUDGET_USD) {
+    res.status(429).json({ error: 'מנת השימוש היומית מוצתה.' })
+    return
+  }
+
+  // All checks passed — start SSE stream
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('Connection', 'keep-alive')
@@ -156,7 +208,6 @@ router.post('/', async (req, res) => {
   let fullResponse = ''
 
   try {
-    // Fetch context and history in parallel — both degrade gracefully if DB is down
     const [contextBlock, historyRows] = await Promise.all([
       buildContextBlock().catch(err => {
         console.error('Context build failed (non-fatal):', err)
@@ -169,7 +220,7 @@ router.post('/', async (req, res) => {
             .from(chatMessages)
             .orderBy(desc(chatMessages.createdAt))
             .limit(20)
-          return rows.reverse() // chronological for Claude
+          return rows.reverse()
         } catch {
           return []
         }
@@ -180,7 +231,6 @@ router.post('/', async (req, res) => {
       ? `${BASE_SYSTEM}\n\n${contextBlock}`
       : BASE_SYSTEM
 
-    // DB history + current user turn (current turn not yet persisted)
     const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [
       ...historyRows.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
       { role: 'user', content: currentUserContent },
@@ -206,7 +256,18 @@ router.post('/', async (req, res) => {
     res.write('data: [DONE]\n\n')
     res.end()
 
-    // Persist user + assistant messages after stream (non-fatal)
+    // Capture token usage after stream completes (non-fatal)
+    let inputTokens = 0
+    let outputTokens = 0
+    try {
+      const finalMsg = await stream.finalMessage()
+      inputTokens = finalMsg.usage.input_tokens
+      outputTokens = finalMsg.usage.output_tokens
+    } catch {
+      console.warn('[chat] Could not capture token usage from stream')
+    }
+
+    // Persist messages + record API usage (non-fatal)
     if (fullResponse) {
       try {
         const db = getDb()
@@ -214,6 +275,16 @@ router.post('/', async (req, res) => {
           { role: 'user', content: currentUserContent },
           { role: 'assistant', content: fullResponse },
         ])
+        const costUsd = calculateClaudeCost(inputTokens, outputTokens).toFixed(4)
+        const today = new Date().toISOString().split('T')[0]
+        await db.insert(apiUsage).values({
+          kind: 'anthropic',
+          userId: req.user?.id ?? null,
+          dayUtc: today,
+          inputTokens,
+          outputTokens,
+          costUsd,
+        })
       } catch (persistErr) {
         console.error('Failed to persist chat messages (non-fatal):', persistErr)
       }
