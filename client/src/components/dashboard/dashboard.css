@@ -636,6 +636,7 @@
   flex-shrink: 0;
 }
 
+/* Requires a `position: relative` wrapper div — see ring-block JSX inline div in UmbrellaDetail.tsx */
 .mn-umbrella-ring-score {
   position: absolute;
   inset: 0;
@@ -655,6 +656,7 @@
 
 /* ─── Trend card ──────────────────────────────────────────────────────────── */
 
+/* Composes with .mn-hero-card — only resets the 16px side margins; .mn-umbrella-content wrapper provides the padding */
 .mn-umbrella-trend-card {
   margin-left: 0;
   margin-right: 0;
