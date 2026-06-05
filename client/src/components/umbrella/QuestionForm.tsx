@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { T } from '../../lib/theme'
+import { C } from '../../lib/dashboardTheme'
 import type { Cadence, AnswerType } from '../../types/umbrella'
 import {
   HE_DAYS,
@@ -21,15 +21,15 @@ function OptionsManager({ options, onChange }: { options: string[]; onChange: (o
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
         אפשרויות
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
         {options.map((opt, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{
-              flex: 1, fontSize: 13, color: T.charcoal,
-              background: T.sageLight, borderRadius: 8, padding: '6px 10px',
+              flex: 1, fontSize: 13, color: C.ink,
+              background: C.faint, borderRadius: 8, padding: '6px 10px',
             }}>
               {opt}
             </span>
@@ -37,7 +37,7 @@ function OptionsManager({ options, onChange }: { options: string[]; onChange: (o
               onClick={() => onChange(options.filter((_, j) => j !== i))}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 16, color: T.charcoalLight, lineHeight: 1, padding: '0 2px',
+                fontSize: 16, color: C.muted, lineHeight: 1, padding: '0 2px',
                 fontFamily: 'inherit',
               }}
             >
@@ -52,9 +52,11 @@ function OptionsManager({ options, onChange }: { options: string[]; onChange: (o
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addOption()}
           placeholder="הוסף אפשרות..."
+          onFocus={e => (e.currentTarget.style.outline = `1.5px solid ${C.bar}`)}
+          onBlur={e => (e.currentTarget.style.outline = 'none')}
           style={{
-            flex: 1, background: T.bg, border: `1px solid ${T.sageMid}`,
-            borderRadius: 8, padding: '6px 10px', fontSize: 13, color: T.charcoal,
+            flex: 1, background: C.warmBg, border: `1px solid ${C.border}`,
+            borderRadius: 8, padding: '6px 10px', fontSize: 13, color: C.ink,
             fontFamily: 'inherit', outline: 'none', direction: 'rtl',
           }}
         />
@@ -62,7 +64,7 @@ function OptionsManager({ options, onChange }: { options: string[]; onChange: (o
           onClick={addOption}
           disabled={!draft.trim() || options.includes(draft.trim())}
           style={{
-            background: T.sage, color: '#fff', border: 'none', borderRadius: 8,
+            background: C.bar, color: '#fff', border: 'none', borderRadius: 8,
             padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
             fontFamily: 'inherit', opacity: !draft.trim() || options.includes(draft.trim()) ? 0.5 : 1,
           }}
@@ -93,25 +95,27 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
     (form.answerType === 'multi_select' && form.options.length < 2)
 
   return (
-    <div dir="rtl" style={{
-      background: T.bgCard, borderRadius: 16, padding: 16,
+    <div dir="rtl" className="mn-umbrella-q-card" style={{
+      background: C.card, borderRadius: 16, padding: 16,
       boxShadow: '0 2px 12px rgba(44,44,42,0.08)',
-      border: `1px solid ${T.sageMid}`,
+      border: `1px solid ${C.border}`,
     }}>
       <textarea
         value={form.text}
         onChange={e => set('text', e.target.value)}
         placeholder="מה תרצה לשאול?"
         rows={2}
+        onFocus={e => (e.currentTarget.style.outline = `1.5px solid ${C.bar}`)}
+        onBlur={e => (e.currentTarget.style.outline = 'none')}
         style={{
-          width: '100%', background: T.bg, border: `1px solid ${T.sageMid}`,
-          borderRadius: 10, padding: '8px 12px', fontSize: 13, color: T.charcoal,
+          width: '100%', background: C.warmBg, border: `1px solid ${C.border}`,
+          borderRadius: 10, padding: '8px 12px', fontSize: 13, color: C.ink,
           fontFamily: 'inherit', outline: 'none', resize: 'none',
           boxSizing: 'border-box', marginBottom: 12, lineHeight: 1.5,
         }}
       />
 
-      <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         תדירות
       </p>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -122,8 +126,8 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
             style={{
               padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
-              background: form.cadence === c ? CADENCE_COLOR[c] : T.sageLight,
-              color: form.cadence === c ? '#fff' : T.charcoalMid,
+              background: form.cadence === c ? CADENCE_COLOR[c] : C.faint,
+              color: form.cadence === c ? '#fff' : C.muted,
               transition: 'all 0.15s',
             }}
           >
@@ -134,7 +138,7 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
 
       {form.cadence === 'weekly' && (
         <div style={{ marginBottom: 12 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
             יום בשבוע
           </p>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -145,8 +149,8 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
                 style={{
                   padding: '4px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
                   fontFamily: 'inherit', fontSize: 12,
-                  background: form.dayOfWeek === i ? T.blue : T.blueLight,
-                  color: form.dayOfWeek === i ? '#fff' : T.charcoalMid,
+                  background: form.dayOfWeek === i ? C.line : C.faint,
+                  color: form.dayOfWeek === i ? '#fff' : C.muted,
                   transition: 'all 0.15s',
                 }}
               >
@@ -159,15 +163,17 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
 
       {(form.cadence === 'monthly' || form.cadence === 'annual') && (
         <div style={{ marginBottom: 12 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
             יום בחודש
           </p>
           <select
             value={form.dayOfMonth}
             onChange={e => set('dayOfMonth', Number(e.target.value))}
+            onFocus={e => (e.currentTarget.style.outline = `1.5px solid ${C.bar}`)}
+            onBlur={e => (e.currentTarget.style.outline = 'none')}
             style={{
-              background: T.bg, border: `1px solid ${T.sageMid}`, borderRadius: 10,
-              padding: '6px 12px', fontSize: 13, color: T.charcoal, fontFamily: 'inherit',
+              background: C.warmBg, border: `1px solid ${C.border}`, borderRadius: 10,
+              padding: '6px 12px', fontSize: 13, color: C.ink, fontFamily: 'inherit',
               outline: 'none', cursor: 'pointer',
             }}
           >
@@ -180,15 +186,17 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
 
       {form.cadence === 'annual' && (
         <div style={{ marginBottom: 12 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
             חודש
           </p>
           <select
             value={form.monthOfYear}
             onChange={e => set('monthOfYear', Number(e.target.value))}
+            onFocus={e => (e.currentTarget.style.outline = `1.5px solid ${C.bar}`)}
+            onBlur={e => (e.currentTarget.style.outline = 'none')}
             style={{
-              background: T.bg, border: `1px solid ${T.sageMid}`, borderRadius: 10,
-              padding: '6px 12px', fontSize: 13, color: T.charcoal, fontFamily: 'inherit',
+              background: C.warmBg, border: `1px solid ${C.border}`, borderRadius: 10,
+              padding: '6px 12px', fontSize: 13, color: C.ink, fontFamily: 'inherit',
               outline: 'none', cursor: 'pointer',
             }}
           >
@@ -199,7 +207,7 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
         </div>
       )}
 
-      <p style={{ fontSize: 11, fontWeight: 700, color: T.charcoalLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         סוג תשובה
       </p>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -216,8 +224,8 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
             style={{
               padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
-              background: form.answerType === t ? T.sage : T.sageLight,
-              color: form.answerType === t ? '#fff' : T.charcoalMid,
+              background: form.answerType === t ? C.bar : C.faint,
+              color: form.answerType === t ? '#fff' : C.muted,
               transition: 'all 0.15s',
             }}
           >
@@ -229,37 +237,41 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
       {form.answerType === 'scale' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: T.charcoalMid }}>מינימום</span>
+            <span style={{ fontSize: 12, color: C.muted }}>מינימום</span>
             <input
               type="number"
               value={form.scaleMin}
               onChange={e => set('scaleMin', Number(e.target.value))}
               min={0}
+              onFocus={e => (e.currentTarget.style.outline = `1.5px solid ${C.bar}`)}
+              onBlur={e => (e.currentTarget.style.outline = 'none')}
               style={{
-                width: 56, background: T.bg, border: `1px solid ${T.sageMid}`,
+                width: 56, background: C.warmBg, border: `1px solid ${C.border}`,
                 borderRadius: 8, padding: '5px 8px', fontSize: 13,
-                color: T.charcoal, fontFamily: 'inherit', outline: 'none', textAlign: 'center',
+                color: C.ink, fontFamily: 'inherit', outline: 'none', textAlign: 'center',
               }}
             />
           </div>
-          <span style={{ color: T.charcoalLight }}>—</span>
+          <span style={{ color: C.muted }}>—</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: T.charcoalMid }}>מקסימום</span>
+            <span style={{ fontSize: 12, color: C.muted }}>מקסימום</span>
             <input
               type="number"
               value={form.scaleMax}
               onChange={e => set('scaleMax', Number(e.target.value))}
               min={1}
+              onFocus={e => (e.currentTarget.style.outline = `1.5px solid ${C.bar}`)}
+              onBlur={e => (e.currentTarget.style.outline = 'none')}
               style={{
-                width: 56, background: T.bg,
-                border: `1px solid ${form.scaleMin >= form.scaleMax ? T.red : T.sageMid}`,
+                width: 56, background: C.warmBg,
+                border: `1px solid ${form.scaleMin >= form.scaleMax ? C.low : C.border}`,
                 borderRadius: 8, padding: '5px 8px', fontSize: 13,
-                color: T.charcoal, fontFamily: 'inherit', outline: 'none', textAlign: 'center',
+                color: C.ink, fontFamily: 'inherit', outline: 'none', textAlign: 'center',
               }}
             />
           </div>
           {form.scaleMin >= form.scaleMax && (
-            <span style={{ fontSize: 11, color: T.red }}>מינ׳ חייב להיות קטן ממקסימום</span>
+            <span style={{ fontSize: 11, color: C.low }}>מינ׳ חייב להיות קטן ממקסימום</span>
           )}
         </div>
       )}
@@ -274,7 +286,7 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
       {form.answerType !== 'scale' && form.answerType !== 'multi_select' && <div style={{ marginBottom: 6 }} />}
 
       {form.answerType === 'multi_select' && form.options.length < 2 && (
-        <p style={{ fontSize: 11, color: T.red, marginBottom: 8 }}>נדרשות לפחות 2 אפשרויות</p>
+        <p style={{ fontSize: 11, color: C.low, marginBottom: 8 }}>נדרשות לפחות 2 אפשרויות</p>
       )}
 
       <div style={{ display: 'flex', gap: 8 }}>
@@ -283,7 +295,7 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
           disabled={isInvalid}
           style={{
             flex: 1,
-            background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
+            background: `linear-gradient(135deg, ${C.bar} 0%, ${C.line} 100%)`,
             color: '#fff', borderRadius: 10, border: 'none', padding: '9px 0',
             fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
             opacity: isInvalid ? 0.5 : 1,
@@ -294,7 +306,7 @@ export function QuestionForm({ form, onChange, onSave, onCancel, saving }: Quest
         <button
           onClick={onCancel}
           style={{
-            flex: 1, background: T.sageLight, color: T.charcoalMid, borderRadius: 10,
+            flex: 1, background: C.faint, color: C.muted, borderRadius: 10,
             border: 'none', padding: '9px 0', fontSize: 13, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'inherit',
           }}
