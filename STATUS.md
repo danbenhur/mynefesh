@@ -26,26 +26,19 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Recently shipped (last ~2 weeks)
 
-- **Dashboard Phase 3 (chat panel redesign):** ChatScreen visually aligned with the new design system. Imports `C` tokens from `dashboardTheme.ts` and `dashboard.css`. New `.mn-chat-*` CSS classes in `dashboard.css` (no parallel stylesheet). Warm cream bg → surface header/input-bar → card bubbles hierarchy. Assistant bubbles: white card with `C.border` border and soft shadow. User bubbles: sage green tint (12% opacity fill, 30% border). Empty state: avatar + Hebrew headline + body. Textarea input (auto-grow, max 120px) with active send button (solid sage when text is present, mic icon otherwise). Streaming cursor: small blinking sage dot at the end of the live assistant bubble. Bug fixed: empty assistant placeholder was double-rendering alongside typing dots — now suppressed in the message map.
+- **Spend protection (migration 0014):** Hard ceilings on all billable surfaces before opening app to invited users. Per-user sliding-window chat rate limit (5 msg/hr, in-memory). Daily Anthropic API budget cap (`DAILY_API_BUDGET_USD`, default $5). Daily SMS cap (`DAILY_SMS_LIMIT`, default 50). New `api_usage` table logs both surfaces with `day_utc` index. `pricing.ts` codifies claude-sonnet-4-6 rates. Both caps return Hebrew 429 errors. Limits are env-var tunable without code changes.
 
-- **Dashboard Phase 2B (real analytics in HeroChart):** New `GET /api/analytics/timeseries?slice&granularity` endpoint backed by `server/src/lib/timeseries.ts`. Implements all 20 view combinations: combo/stacked/question/goal/movingavg × day/week/month/year. HeroChart fetches real data via `getTimeseries()`, caches results per (slice, granularity) key in module memory, shows loading fade and Hebrew error/empty states. ComboChart updated to use new `TimeseriesResponse` type (no longer depends on MockData). Legend in stacked mode shows real umbrella names + colors. MockData import removed from HomeScreen.
+- **Dashboard Phase 4 (UmbrellaDetail + QuestionsSection + QuestionForm):** Shell, header, 6-week trend card, sub-areas elevated cards, integrated sparklines + kebab menus, token update on QuestionForm — all aligned to the new design system CSS class library.
 
-- **Dashboard Phase 2A (real umbrella gallery):** Gallery cards now show real umbrellas from the Zustand store (top-level only). Each card maps umbrella name → `umbrellaColor()`, `computedHealthScore` (null renders as "—"), `computedTrend` sparkline, and a Hebrew relative-time string from `updatedAt`. Card click navigates to UmbrellaDetail. Empty state with "create first umbrella" prompt. Server `umbrellaShape` updated to return `updatedAt`.
+- **Dashboard Phase 3 (chat panel redesign):** ChatScreen visually aligned to new design system. Warm cream bg, sage bubbles, textarea auto-grow, streaming cursor dot, empty state in Hebrew. Double-render bug fixed.
 
-- **Dashboard redesign Phase 1 (visual shell):** new HomeScreen with warm cream background (Sage palette). HeroChart card — eyebrow, score/delta/avg, time tabs (יום/שבוע/חודש/שנה), slice tabs (כללי/לפי מטריה/לפי שאלה/יעדים/ממוצע נע), SVG ComboChart (Catmull-Rom line + bars + hover tooltip + movingavg mode), legend. Umbrella gallery — container-query responsive grid, each card with icon + colored dot + Catmull-Rom sparkline + score + delta. Sandbox banner and archived link use real API. Phase 1: all mock data.
+- **Dashboard Phases 1–2B (HomeScreen shell + real data):** HeroChart wired to real `/api/analytics/timeseries` endpoint (20 view combos). Gallery cards show real umbrellas with live scores + sparklines. MockData removed from HomeScreen.
 
-- **Auth:** GitHub OAuth → replaced with Google OAuth; sessions on Postgres so logins survive redeploys.
-- **SMS:** swapped Twilio WhatsApp sandbox (constant 72h expiration headaches) for a paid SMS number; webhook now signature-verified so check-ins can't be faked.
-- **Interview engine:** dynamic daily composer pulls today's questions from all umbrellas (daily/weekly/monthly/annual cadences); answers stored with normalized values; in-app sequential question UI; after-midnight grace window so a 00:30 check-in counts for yesterday.
-- **Resolutions:** time-bound commitments tied to a question (e.g. "brush teeth nightly for 3 months"). Auto-completes at deadline. Track progress %, streak. Active + past visible per umbrella.
-- **Umbrellas:** recursive hierarchy (any umbrella can have children, drilldown). Archive + restore. Delete with confirmation. Header kebab menu (⋮) for rename / change icon / move under parent / archive / delete.
-- **UX cleanup:** all hardcoded prototype data stripped; full Hebrew + RTL; mobile color-scheme fixed.
-- **Branch consolidation:** one branch (`master`), one push, no more drift between main/master.
-- **Migration workflow hardened:** every migration idempotent; build-time check fails the build if `_journal.json` and `.sql` files ever desync. The recurring nightmare is closed.
-- **AI chat:** Nefesh now sees real computed health scores derived from actual interview answers (was reading legacy placeholder column).
-- **Compute fix #1 (scheduler):** `user_settings` cached in process memory (1-hour TTL) + each tick short-circuits on in-memory time checks before touching Neon. Reduces idle DB hits from ~250k/month to near-zero. `invalidateSettingsCache()` called on PATCH /settings so changes take effect immediately.
-- **Compute fix #2 (indexes):** Migration 0013 adds 12 indexes on all FK columns (`umbrella_id`, `question_id`, `parent_id`) and frequently-filtered columns (`status`, `end_date`, `interview_date`, `archived_at`). Eliminates sequential scans on every join/filter query. Schema.ts updated with matching Drizzle `index()` definitions.
-- **Compute fix #3 (analytics batch):** `getAllUmbrellaHealthScores` rewritten to run 2 parallel queries (umbrella ID list + single GROUP BY aggregation) instead of N+1 per-umbrella queries. Zero-answer umbrellas now return explicit `null` rather than a missing map entry.
+- **Compute fixes #1–3:** Scheduler settings cached (1-hr TTL), 12 FK/filter indexes in migration 0013, analytics batch rewritten to 2-query pattern (eliminates N+1).
+
+- **Migration workflow hardened:** every migration idempotent; build-time journal/SQL sync check added.
+
+- **AI chat:** Nefesh sees real computed health scores (not legacy placeholder column).
 
 ---
 
@@ -69,15 +62,18 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Likely next steps (in priority order, my opinion)
 
-1. Finish committing the UmbrellaDetail split (#6) once the bridge cooperates.
-2. **Chat tool use** — Phase 2 of the chat plan. Nefesh becomes able to actually *do* things, not just discuss. Biggest behavior upgrade still on the table.
-3. **Resolution visualization** — heatmap/streak grid. Makes the habit-tracking feel real.
-4. **Mobile responsive pass** — fix the fixed-pixel layout.
+1. **Dashboard Phases 5–6** — InterviewScreen + ProfileScreen visual alignment with the new design system. Logical next in the series.
+2. **Finish UmbrellaDetail component split** — pure refactor in a stuck worktree; no behavior change, just resolves the 1,856-line file.
+3. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
+4. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
+5. **Raise spend caps once traffic warrants** — defaults are conservative ($5/day API, 50 SMS/day); tune via env vars when invited users are active.
 
 ---
 
 ## Known caveats / gotchas
 
+- **Spend caps are conservative by design** — `DAILY_API_BUDGET_USD=5` and `DAILY_SMS_LIMIT=50` are intentionally low. Raise via env vars on Render when traffic warrants. Chat rate limit (5 msg/hr) is an in-memory constant in `chat.ts`.
+- **Token pricing must be maintained manually** — `server/src/lib/pricing.ts` hardcodes claude-sonnet-4-6 rates. If the model or pricing changes, update that file.
 - **Render free tier sleeps after 15 min idle** — cron-job.org ping every 10 min keeps it warm so the scheduler actually fires.
 - **Twilio SMS** — paid (~$3/mo). Real number, no more sandbox. Webhook signature-verified.
 - **Single user** — schema has no userId column; auth is allowlist-by-email. Adding users later = real refactor.
