@@ -177,7 +177,7 @@ export function QuestionsSection({
         </div>
       )}
 
-      {!loadingQ && (
+      {!loadingQ && questions.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
           {questions.map(q => (
             <div key={q.id}>
