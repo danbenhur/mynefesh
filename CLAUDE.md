@@ -56,7 +56,7 @@ The app is fully deployed and functional. Below is what is actually built.
 | ORM | Drizzle ORM + drizzle-kit (auto-migrations on startup) |
 | Database | Neon PostgreSQL (serverless) |
 | Auth | Passport.js + Google OAuth 2.0 (single allowed email) |
-| AI | Anthropic SDK (`claude-opus-4-5` via SSE streaming) |
+| AI | Anthropic SDK (`claude-sonnet-4-6` via SSE streaming) |
 | WhatsApp | Twilio sandbox (WhatsApp) |
 | Scheduler | node-cron (runs every minute on server) |
 | Sunset calc | SunCalc (Jerusalem Shabbat window) |
