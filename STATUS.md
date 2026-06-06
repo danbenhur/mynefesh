@@ -20,7 +20,7 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**Dashboard redesign — active migration.** Phases 2A + 2B and Phase 3 (chat panel) are shipped. Phase 4+ (InterviewScreen, ProfileScreen, UmbrellaDetail visual alignment) is next.
+**Dashboard redesign — Phase 4 shipped.** UmbrellaDetail drill-down fully redesigned: color-wash header, hero 6-week trend card, integrated question sparklines, bottom-sheet resolution creation/detail flow. Phase 5+ (InterviewScreen, ProfileScreen visual alignment) is next.
 
 ---
 
@@ -28,7 +28,7 @@ For schema/routes/file layout see CLAUDE.md.
 
 - **Spend protection (migration 0014):** Hard ceilings on all billable surfaces before opening app to invited users. Per-user sliding-window chat rate limit (5 msg/hr, in-memory). Daily Anthropic API budget cap (`DAILY_API_BUDGET_USD`, default $5). Daily SMS cap (`DAILY_SMS_LIMIT`, default 50). New `api_usage` table logs both surfaces with `day_utc` index. `pricing.ts` codifies claude-sonnet-4-6 rates. Both caps return Hebrew 429 errors. Limits are env-var tunable without code changes.
 
-- **Dashboard Phase 4 (UmbrellaDetail + QuestionsSection + QuestionForm):** Shell, header, 6-week trend card, sub-areas elevated cards, integrated sparklines + kebab menus, token update on QuestionForm — all aligned to the new design system CSS class library.
+- **Dashboard Phase 4 (UmbrellaDetail drill-down redesign):** Color-wash header (umbrella icon + name + computed score ring), hero 6-week trend card, sub-areas elevated cards, integrated sparklines + kebab menus on questions, bottom-sheet resolution creation (existing or new question, scale/boolean/boolean_partial, duration chips, auto-focus + improved placeholder in new-question mode), resolution detail sheet (progress ring, streak/longest/total stat tiles, abandon flow). Server error surfacing + payload logging added for diagnostics. All aligned to the new design system CSS class library.
 
 - **Dashboard Phase 3 (chat panel redesign):** ChatScreen visually aligned to new design system. Warm cream bg, sage bubbles, textarea auto-grow, streaming cursor dot, empty state in Hebrew. Double-render bug fixed.
 
@@ -44,9 +44,8 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
-- **Dashboard Phases 4–6:** InterviewScreen, ProfileScreen, UmbrellaDetail visual alignment with new design system; drill-down, per-umbrella sparklines from real trends, full responsive/container-query polish.
-- **UmbrellaDetail.tsx refactor (#6 of code review):** 1,856-line component split into focused subcomponents under `client/src/components/umbrella/`. Code written, builds clean, but stuck uncommitted in a git worktree due to bridge flakiness. Pure refactor — zero behavior change.
-- **Minor debt (#7-8):** stray `console.log`s, `TODO/FIXME` comments to sweep. Optional.
+- **Dashboard Phases 5–6:** InterviewScreen, ProfileScreen visual alignment with the new design system.
+- **Minor debt:** stray `TODO/FIXME` comments to sweep. Optional.
 
 ---
 
@@ -63,10 +62,9 @@ For schema/routes/file layout see CLAUDE.md.
 ## Likely next steps (in priority order, my opinion)
 
 1. **Dashboard Phases 5–6** — InterviewScreen + ProfileScreen visual alignment with the new design system. Logical next in the series.
-2. **Finish UmbrellaDetail component split** — pure refactor in a stuck worktree; no behavior change, just resolves the 1,856-line file.
-3. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
-4. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
-5. **Raise spend caps once traffic warrants** — defaults are conservative ($5/day API, 50 SMS/day); tune via env vars when invited users are active.
+2. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
+3. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
+4. **Raise spend caps once traffic warrants** — defaults are conservative ($5/day API, 50 SMS/day); tune via env vars when invited users are active.
 
 ---
 
