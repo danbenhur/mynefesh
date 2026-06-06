@@ -43,6 +43,7 @@ export function ResolutionsSection({
   const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [abandoningR, setAbandoningR] = useState(false)
   const [pastExpanded, setPastExpanded] = useState(false)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
   const newQTextRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -93,11 +94,12 @@ export function ResolutionsSection({
       }
     }
     console.log('Resolution payload:', payload)
+
+    // Phase 1 — POST only. If this throws, the resolution was NOT saved.
+    let created: ApiResolution | null = null
     try {
-      const created = await createResolution(payload)
-      onResolutionsListChange([created, ...resolutionsList])
-      setResolutionForm(DEFAULT_RESOLUTION_FORM)
-      setShowAddResolution(false)
+      created = await createResolution(payload)
+      console.log('Resolution created:', created)
     } catch (err) {
       let serverMsg: string | null = null
       if (err instanceof Error) {
@@ -112,9 +114,21 @@ export function ResolutionsSection({
       console.error('Resolution save failed:', { err, payload })
       setSaveError(serverMsg ?? 'לא הצלחנו לשמור — נסה שוב')
       setTimeout(() => setSaveError(null), 4000)
-    } finally {
       setSavingR(false)
+      return
     }
+
+    // Phase 2 — UI cleanup. Resolution IS in the database — never show error here.
+    setSavingR(false)
+    try {
+      onResolutionsListChange([created!, ...resolutionsList])
+    } catch (err) {
+      console.warn('Resolution created but list update failed (refreshes on next load):', err)
+    }
+    setResolutionForm(DEFAULT_RESOLUTION_FORM)
+    setShowAddResolution(false)
+    setSuccessMsg('ההחלטה נוצרה')
+    setTimeout(() => setSuccessMsg(null), 1500)
   }
 
   async function handleAbandonResolution() {
@@ -483,6 +497,12 @@ export function ResolutionsSection({
           </div>
         )
       })()}
+
+      {successMsg && (
+        <div className="mn-umbrella-toast" style={{ background: C.good }}>
+          {successMsg}
+        </div>
+      )}
     </div>
   )
 }
