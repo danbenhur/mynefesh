@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { C } from '../../lib/dashboardTheme'
-import { createResolution, abandonResolution } from '../../lib/api'
+import { createResolution, abandonResolution, listResolutions } from '../../lib/api'
 import type { ApiResolution } from '../../lib/api'
 import type { Question } from '../../types/umbrella'
 import {
@@ -101,20 +101,46 @@ export function ResolutionsSection({
       created = await createResolution(payload)
       console.log('Resolution created:', created)
     } catch (err) {
+      console.error('Resolution save failed:', String(err), { err, payload })
+
       let serverMsg: string | null = null
+      let treatAsSuccess = false
+
       if (err instanceof Error) {
-        const match = err.message.match(/^API \d+: (.+)$/s)
+        const match = err.message.match(/^API (\d+): (.+)$/s)
         if (match) {
-          try {
-            const body = JSON.parse(match[1])
-            serverMsg = typeof body.error === 'string' ? body.error : JSON.stringify(body.error)
-          } catch { /* response body was not JSON */ }
+          const httpStatus = parseInt(match[1], 10)
+          const body = match[2]
+          if (httpStatus >= 200 && httpStatus < 300 && body.startsWith('[json parse failed:')) {
+            // Server responded 2xx (record IS in DB) but response body was unreadable.
+            // Treat as success: refresh the list and close the sheet normally.
+            treatAsSuccess = true
+          } else {
+            try {
+              const parsed = JSON.parse(body)
+              serverMsg = typeof parsed.error === 'string' ? parsed.error : `שגיאת שרת ${httpStatus}`
+            } catch {
+              serverMsg = body.startsWith('<!') ? `שגיאת שרת ${httpStatus}` : `שגיאת שרת ${httpStatus}`
+            }
+          }
+        } else if (err.name === 'SyntaxError') {
+          serverMsg = 'תשובה לא תקינה מהשרת'
+        } else if (err.name === 'TypeError') {
+          serverMsg = 'שגיאת רשת — בדוק חיבור ונסה שוב'
         }
       }
-      console.error('Resolution save failed:', { err, payload })
-      setSaveError(serverMsg ?? 'לא הצלחנו לשמור — נסה שוב')
-      setTimeout(() => setSaveError(null), 4000)
+
       setSavingR(false)
+      if (treatAsSuccess) {
+        setResolutionForm(DEFAULT_RESOLUTION_FORM)
+        setShowAddResolution(false)
+        setSuccessMsg('ההחלטה נוצרה')
+        setTimeout(() => setSuccessMsg(null), 1500)
+        listResolutions(umbrellaId).then(onResolutionsListChange).catch(console.warn)
+      } else {
+        setSaveError(serverMsg ?? 'לא הצלחנו לשמור — נסה שוב')
+        setTimeout(() => setSaveError(null), 4000)
+      }
       return
     }
 

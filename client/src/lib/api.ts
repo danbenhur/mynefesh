@@ -8,7 +8,13 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
   if (res.status === 204) return undefined as T
-  return res.json()
+  try {
+    return await res.json()
+  } catch (parseErr) {
+    // Preserve the HTTP status so callers can distinguish "server rejected" from
+    // "server accepted but response body was unreadable" (e.g. proxy garbled the body).
+    throw new Error(`API ${res.status}: [json parse failed: ${parseErr}]`)
+  }
 }
 
 export interface ApiTask {
