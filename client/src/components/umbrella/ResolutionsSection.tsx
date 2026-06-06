@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { C } from '../../lib/dashboardTheme'
 import { createResolution, abandonResolution } from '../../lib/api'
 import type { ApiResolution } from '../../lib/api'
@@ -44,6 +44,11 @@ export function ResolutionsSection({
   const [abandoningR, setAbandoningR] = useState(false)
   const [pastExpanded, setPastExpanded] = useState(false)
 
+  const newQTextRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (resolutionForm.qSource === 'new') newQTextRef.current?.focus()
+  }, [resolutionForm.qSource])
+
   const active = resolutionsList.filter(r => r.status === 'active')
   const past = resolutionsList.filter(r => r.status !== 'active')
   const today = todayClientStr()
@@ -71,30 +76,41 @@ export function ResolutionsSection({
     if (resolutionForm.qSource === 'new' && !resolutionForm.newQText.trim()) return
     if (qType === 'scale' && !threshold) return
     setSavingR(true)
+    const payload: Parameters<typeof createResolution>[0] = {
+      umbrellaId,
+      title: resolutionForm.title.trim(),
+      startDate: today,
+      endDate,
+      successThreshold: threshold,
+    }
+    if (resolutionForm.qSource === 'existing') {
+      payload.questionId = resolutionForm.existingQId
+    } else {
+      payload.newQuestion = {
+        text: resolutionForm.newQText.trim(),
+        answerType: resolutionForm.newQType,
+        ...(resolutionForm.newQType === 'scale' ? { scaleMin: resolutionForm.newQScaleMin, scaleMax: resolutionForm.newQScaleMax } : {}),
+      }
+    }
+    console.log('Resolution payload:', payload)
     try {
-      const payload: Parameters<typeof createResolution>[0] = {
-        umbrellaId,
-        title: resolutionForm.title.trim(),
-        startDate: today,
-        endDate,
-        successThreshold: threshold,
-      }
-      if (resolutionForm.qSource === 'existing') {
-        payload.questionId = resolutionForm.existingQId
-      } else {
-        payload.newQuestion = {
-          text: resolutionForm.newQText.trim(),
-          answerType: resolutionForm.newQType,
-          ...(resolutionForm.newQType === 'scale' ? { scaleMin: resolutionForm.newQScaleMin, scaleMax: resolutionForm.newQScaleMax } : {}),
-        }
-      }
       const created = await createResolution(payload)
       onResolutionsListChange([created, ...resolutionsList])
       setResolutionForm(DEFAULT_RESOLUTION_FORM)
       setShowAddResolution(false)
     } catch (err) {
-      console.error('handleSaveResolution:', err)
-      setSaveError('לא הצלחנו לשמור — נסה שוב')
+      let serverMsg: string | null = null
+      if (err instanceof Error) {
+        const match = err.message.match(/^API \d+: (.+)$/s)
+        if (match) {
+          try {
+            const body = JSON.parse(match[1])
+            serverMsg = typeof body.error === 'string' ? body.error : JSON.stringify(body.error)
+          } catch { /* response body was not JSON */ }
+        }
+      }
+      console.error('Resolution save failed:', { err, payload })
+      setSaveError(serverMsg ?? 'לא הצלחנו לשמור — נסה שוב')
       setTimeout(() => setSaveError(null), 4000)
     } finally {
       setSavingR(false)
@@ -234,10 +250,11 @@ export function ResolutionsSection({
               {resolutionForm.qSource === 'new' && (
                 <div style={{ marginBottom: 12, marginTop: 8 }}>
                   <input
+                    ref={newQTextRef}
                     className="mn-sheet-input"
                     value={resolutionForm.newQText}
                     onChange={e => setResolutionForm(f => ({ ...f, newQText: e.target.value }))}
-                    placeholder="טקסט השאלה..."
+                    placeholder="מה תרצה לעקוב אחריו? (לדוגמה: האם רצתי היום?)"
                     style={{ marginBottom: 8 }}
                   />
                   <div style={{ display: 'flex', gap: 6 }}>
