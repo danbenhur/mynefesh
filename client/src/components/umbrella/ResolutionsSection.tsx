@@ -38,6 +38,7 @@ export function ResolutionsSection({
   const [showAddResolution, setShowAddResolution] = useState(false)
   const [resolutionForm, setResolutionForm] = useState<ResolutionFormState>(DEFAULT_RESOLUTION_FORM)
   const [savingR, setSavingR] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [detailResolution, setDetailResolution] = useState<ApiResolution | null>(null)
   const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [abandoningR, setAbandoningR] = useState(false)
@@ -52,6 +53,13 @@ export function ResolutionsSection({
     && (resolutionForm.qSource === 'existing' ? !!resolutionForm.existingQId : !!resolutionForm.newQText.trim())
     && (!needsThreshold || !!resolutionForm.successThreshold)
     && !savingR
+
+  const validationHint = canSave ? null
+    : !resolutionForm.title.trim() ? 'הוסף כותרת להחלטה'
+    : resolutionForm.qSource === 'existing' && !resolutionForm.existingQId ? 'בחר שאלה קיימת, או עבור ל״שאלה חדשה״'
+    : resolutionForm.qSource === 'new' && !resolutionForm.newQText.trim() ? 'הוסף טקסט לשאלה החדשה'
+    : needsThreshold && !resolutionForm.successThreshold ? 'הגדר סף הצלחה לשאלת הסולם (גלול למטה)'
+    : null
 
   async function handleSaveResolution() {
     const endDate = resolutionEndDate(resolutionForm)
@@ -86,6 +94,8 @@ export function ResolutionsSection({
       setShowAddResolution(false)
     } catch (err) {
       console.error('handleSaveResolution:', err)
+      setSaveError('לא הצלחנו לשמור — נסה שוב')
+      setTimeout(() => setSaveError(null), 4000)
     } finally {
       setSavingR(false)
     }
@@ -294,10 +304,24 @@ export function ResolutionsSection({
               <p className="mn-sheet-date-range">{today} → {resolutionEndDate(resolutionForm)}</p>
             </div>
 
+            {/* Validation hint — tells Dan exactly what's still needed */}
+            {validationHint && (
+              <p style={{ fontSize: 12, color: C.muted, textAlign: 'center', padding: '0 20px 10px', flexShrink: 0 }}>
+                {validationHint}
+              </p>
+            )}
+
+            {/* API error feedback */}
+            {saveError && (
+              <p style={{ fontSize: 12, color: C.low, textAlign: 'center', padding: '0 20px 8px', fontWeight: 600, flexShrink: 0 }}>
+                {saveError}
+              </p>
+            )}
+
             <div className="mn-sheet-action-row">
               <button
                 className="mn-sheet-btn-ghost"
-                onClick={() => { setShowAddResolution(false); setResolutionForm(DEFAULT_RESOLUTION_FORM) }}
+                onClick={() => { setShowAddResolution(false); setResolutionForm(DEFAULT_RESOLUTION_FORM); setSaveError(null) }}
               >
                 ביטול
               </button>
