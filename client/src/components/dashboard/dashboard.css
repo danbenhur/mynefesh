@@ -1037,8 +1037,10 @@
   flex-direction: column;
 }
 
-.mn-sheet-short { max-height: 48vh; }
-.mn-sheet-tall  { max-height: 78vh; }
+/* dvh (dynamic viewport height) shrinks with the on-screen keyboard on iOS/Android,
+   keeping the action row visible when an input is focused. Fallback to vh for older browsers. */
+.mn-sheet-short { max-height: 48vh; max-height: 48dvh; }
+.mn-sheet-tall  { max-height: 78vh; max-height: 78dvh; }
 
 .mn-sheet-drag-handle {
   width: 40px;
@@ -1156,7 +1158,7 @@
   font-family: inherit;
   transition: opacity 0.15s;
 }
-.mn-sheet-btn-primary:disabled { background: rgba(44,44,42,0.07); color: rgba(44,44,42,0.32); cursor: default; }
+.mn-sheet-btn-primary:disabled { background: rgba(44,44,42,0.11); color: rgba(44,44,42,0.45); cursor: default; }
 
 .mn-sheet-btn-ghost {
   flex: 1;
