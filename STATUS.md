@@ -20,13 +20,15 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**Dashboard redesign — Phase 4 shipped.** UmbrellaDetail drill-down fully redesigned: color-wash header, hero 6-week trend card, integrated question sparklines, bottom-sheet resolution creation/detail flow. Phase 5+ (InterviewScreen, ProfileScreen visual alignment) is next.
+**Dashboard redesign — Phase 5 shipped.** All five main screens now speak the same design language: warm cream bg, white cards, sage accent, `.mn-*` CSS class library, `C.*` tokens from `dashboardTheme.ts`. The dashboard migration is complete. Next up: behavior improvements (chat tool use, real AI nudges, resolution heatmap).
 
 ---
 
 ## Recently shipped (last ~2 weeks)
 
 - **Spend protection (migration 0014):** Hard ceilings on all billable surfaces before opening app to invited users. Per-user sliding-window chat rate limit (5 msg/hr, in-memory). Daily Anthropic API budget cap (`DAILY_API_BUDGET_USD`, default $5). Daily SMS cap (`DAILY_SMS_LIMIT`, default 50). New `api_usage` table logs both surfaces with `day_utc` index. `pricing.ts` codifies claude-sonnet-4-6 rates. Both caps return Hebrew 429 errors. Limits are env-var tunable without code changes.
+
+- **Dashboard Phase 5 (InterviewScreen / ProfileScreen / ArchivedScreen redesign):** All three screens ported to the `C.*` dashboard token set and `.mn-interview-*`, `.mn-profile-*`, `.mn-archived-*` CSS class library. ProfileScreen inert controls (personality/language chips, morning-brief/AI-nudges toggles) commented out with TODO notes — not wired, not shown. AI Nudges slot in HomeScreen marked as TODO (absent from render tree intentionally). Build verified clean.
 
 - **Dashboard Phase 4 (UmbrellaDetail drill-down redesign):** Color-wash header (umbrella icon + name + computed score ring), hero 6-week trend card, sub-areas elevated cards, integrated sparklines + kebab menus on questions, bottom-sheet resolution creation (existing or new question, scale/boolean/boolean_partial, duration chips, auto-focus + improved placeholder in new-question mode), resolution detail sheet (progress ring, streak/longest/total stat tiles, abandon flow). Server error surfacing + payload logging added for diagnostics. All aligned to the new design system CSS class library.
 
@@ -44,8 +46,8 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
-- **Dashboard Phases 5–6:** InterviewScreen, ProfileScreen visual alignment with the new design system.
 - **Minor debt:** stray `TODO/FIXME` comments to sweep. Optional.
+- **Inert ProfileScreen controls:** personality/language chips + morning-brief/AI-nudges toggles are commented out pending multi-tenancy + per-user settings work.
 
 ---
 
@@ -61,8 +63,7 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Likely next steps (in priority order, my opinion)
 
-1. **Dashboard Phases 5–6** — InterviewScreen + ProfileScreen visual alignment with the new design system. Logical next in the series.
-2. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
+1. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
 3. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
 4. **Raise spend caps once traffic warrants** — defaults are conservative ($5/day API, 50 SMS/day); tune via env vars when invited users are active.
 
