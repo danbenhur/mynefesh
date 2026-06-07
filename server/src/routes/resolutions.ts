@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { resolutions, umbrellaQuestions } from '../db/schema.js'
 import { computeResolutionProgress, todayJerusalem } from '../lib/resolutions.js'
