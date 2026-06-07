@@ -101,29 +101,38 @@ export function ResolutionsSection({
       created = await createResolution(payload)
       console.log('Resolution created:', created)
     } catch (err) {
-      console.error('Resolution save failed:', { err, payload })
+      const errStr = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      console.error('[handleSaveResolution] threw:', { err, errStr, payload })
 
       setSavingR(false)
 
       if (err instanceof Error) {
         const match = err.message.match(/^API (\d+): (.+)$/s)
         if (match) {
-          // Server responded with a known HTTP error status — resolution was NOT saved.
+          // Server responded with a known HTTP error status.
           const httpStatus = parseInt(match[1], 10)
           let serverMsg: string
           try {
             const body = JSON.parse(match[2])
             serverMsg = typeof body.error === 'string' ? body.error : `שגיאת שרת ${httpStatus}`
           } catch {
-            serverMsg = `שגיאת שרת ${httpStatus}`
+            serverMsg = `שגיאת שרת ${httpStatus}: ${match[2].slice(0, 120)}`
+          }
+          // If the server message says resolution was saved (e.g. serialize-error), treat as success
+          if (serverMsg.includes('was saved')) {
+            setResolutionForm(DEFAULT_RESOLUTION_FORM)
+            setShowAddResolution(false)
+            listResolutions(umbrellaId).then(onResolutionsListChange).catch(console.warn)
+            setSuccessMsg('ההחלטה נוצרה (רענן אם אינה מופיעה)')
+            setTimeout(() => setSuccessMsg(null), 4000)
+            return
           }
           setSaveError(serverMsg)
-          setTimeout(() => setSaveError(null), 4000)
+          setTimeout(() => setSaveError(null), 6000)
           return
         }
-        // TypeError = network failure; SyntaxError = 201 body couldn't parse.
-        // Either way the server MAY have committed the record — don't block re-creates.
-        // Close the sheet, refresh the list, show an ambiguous warning.
+        // TypeError = network failure; SyntaxError = body couldn't parse.
+        // The server MAY have committed — close, refresh, show ambiguous warning.
         if (err.name === 'TypeError' || err.name === 'SyntaxError') {
           setResolutionForm(DEFAULT_RESOLUTION_FORM)
           setShowAddResolution(false)
@@ -134,8 +143,9 @@ export function ResolutionsSection({
         }
       }
 
-      setSaveError('לא הצלחנו לשמור — נסה שוב')
-      setTimeout(() => setSaveError(null), 4000)
+      // Unknown error type — show full error string for diagnostics
+      setSaveError(errStr || 'לא הצלחנו לשמור — נסה שוב')
+      setTimeout(() => setSaveError(null), 6000)
       return
     }
 

@@ -105,6 +105,10 @@ resolutionsRouter.post('/', async (req, res) => {
     res.status(400).json({ error: parse.error.flatten() })
     return
   }
+
+  let step = 'init'
+  let savedResolutionId: string | null = null
+
   try {
     const db = getDb()
     const { umbrellaId, questionId: bodyQuestionId, newQuestion, title, startDate, endDate, successThreshold } = parse.data
@@ -112,8 +116,9 @@ resolutionsRouter.post('/', async (req, res) => {
     let questionId = bodyQuestionId!
     let questionAnswerType: string
 
+    step = 'question'
     if (newQuestion) {
-      const [q] = await db
+      const qRows = await db
         .insert(umbrellaQuestions)
         .values({
           umbrellaId,
@@ -125,8 +130,11 @@ resolutionsRouter.post('/', async (req, res) => {
           enabled: true,
         })
         .returning()
+      const q = qRows[0]
+      if (!q) throw new Error('umbrellaQuestions INSERT returned empty RETURNING')
       questionId = q.id
       questionAnswerType = q.answerType
+      console.log('[POST /resolutions] step=question-insert ok questionId=%s', questionId)
     } else {
       const qType = await loadQuestionType(questionId)
       if (!qType) {
@@ -134,6 +142,7 @@ resolutionsRouter.post('/', async (req, res) => {
         return
       }
       questionAnswerType = qType
+      console.log('[POST /resolutions] step=question-lookup ok questionId=%s type=%s', questionId, questionAnswerType)
     }
 
     if (questionAnswerType === 'scale' && successThreshold == null) {
@@ -145,15 +154,27 @@ resolutionsRouter.post('/', async (req, res) => {
       return
     }
 
-    const [row] = await db
+    step = 'resolution-insert'
+    const resRows = await db
       .insert(resolutions)
       .values({ umbrellaId, questionId, title, startDate, endDate, successThreshold: successThreshold ?? null })
       .returning()
+    const row = resRows[0]
+    if (!row) throw new Error('resolutions INSERT returned empty RETURNING — data may be committed; refresh to verify')
+    savedResolutionId = row.id
+    console.log('[POST /resolutions] step=resolution-insert ok id=%s', row.id)
 
+    step = 'serialize'
     res.status(201).json(resShape(row))
   } catch (err) {
-    console.error('POST /resolutions:', err)
-    res.status(500).json({ error: 'Failed to create resolution' })
+    const errStr = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    console.error(`[POST /resolutions] step=${step} savedResolutionId=${savedResolutionId} FAILED:`, err)
+    if (step === 'serialize' && savedResolutionId) {
+      // Resolution IS committed — 500 would mislead the client into thinking it failed
+      res.status(500).json({ error: `serialize-error (resolution ${savedResolutionId} was saved — refresh to see it): ${errStr}` })
+    } else {
+      res.status(500).json({ error: `step=${step}: ${errStr}` })
+    }
   }
 })
 
