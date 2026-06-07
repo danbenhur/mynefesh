@@ -134,6 +134,9 @@ export default function HomeScreen({ navigate }: Props) {
       {/* ── Hero chart ───────────────────────────────────── */}
       <HeroChart colors={C} />
 
+      {/* ── AI Nudges ────────────────────────────────────── */}
+      {/* TODO: wire real nudge generation — hidden until Claude analysis of answer patterns is built */}
+
       {/* ── Gallery ──────────────────────────────────────── */}
       <section className="mn-gallery-section">
         <div className="mn-gallery-header">

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { T, umbrellaColor } from '../lib/theme'
+import { C } from '../lib/dashboardTheme'
+import { umbrellaColor } from '../lib/theme'
 import { getTodaysInterview, submitInterviewAnswer, completeInterview } from '../lib/api'
 import type { ApiComposedQuestion, ApiInterviewSession } from '../lib/api'
 import type { NavigateFn } from '../types/nav'
 import { useStore } from '../store/useStore'
+import './dashboard/dashboard.css'
 
 interface Props {
   navigate: NavigateFn
@@ -22,21 +24,17 @@ function ScaleInput({ min, max, value, onSelect }: {
   const options: number[] = []
   for (let i = min; i <= max; i++) options.push(i)
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+    <div className="mn-interview-scale-row">
       {options.map(n => (
         <button
           key={n}
           onClick={() => onSelect(n)}
+          className="mn-interview-scale-btn"
           style={{
-            width: 52, height: 52, borderRadius: 14, border: 'none',
-            fontSize: 18, fontWeight: 700,
-            background: value === n ? T.sage : T.sageLight,
-            color: value === n ? '#fff' : T.charcoal,
-            cursor: 'pointer',
+            background: value === n ? C.bar : 'rgba(156,175,136,0.12)',
+            color: value === n ? '#fff' : C.ink,
             transform: value === n ? 'scale(1.12)' : 'scale(1)',
-            boxShadow: value === n ? `0 4px 12px rgba(156,175,136,0.4)` : 'none',
-            transition: 'all 0.18s',
-            fontFamily: 'inherit',
+            boxShadow: value === n ? '0 4px 12px rgba(156,175,136,0.35)' : 'none',
           }}
         >
           {n}
@@ -57,20 +55,16 @@ function BooleanInput({ type, value, onSelect }: {
       : [{ val: 'yes', label: 'כן' }, { val: 'no', label: 'לא' }]
 
   return (
-    <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+    <div className="mn-interview-bool-row">
       {opts.map(o => (
         <button
           key={o.val}
           onClick={() => onSelect(o.val)}
+          className="mn-interview-bool-btn"
           style={{
-            flex: 1, maxWidth: 120, padding: '16px 0', borderRadius: 16, border: 'none',
-            fontSize: 18, fontWeight: 700,
-            background: value === o.val ? T.sage : T.sageLight,
-            color: value === o.val ? '#fff' : T.charcoal,
-            cursor: 'pointer',
-            boxShadow: value === o.val ? `0 4px 12px rgba(156,175,136,0.4)` : 'none',
-            transition: 'all 0.18s',
-            fontFamily: 'inherit',
+            background: value === o.val ? C.bar : 'rgba(156,175,136,0.12)',
+            color: value === o.val ? '#fff' : C.ink,
+            boxShadow: value === o.val ? '0 4px 12px rgba(156,175,136,0.35)' : 'none',
           }}
         >
           {o.label}
@@ -86,33 +80,29 @@ function MultiSelectInput({ options, selected, onToggle }: {
   onToggle: (opt: string) => void
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="mn-interview-multi-list">
       {options.map(opt => {
         const isOn = selected.includes(opt)
         return (
           <button
             key={opt}
             onClick={() => onToggle(opt)}
+            className="mn-interview-multi-btn"
             style={{
-              width: '100%', padding: '14px 16px',
-              borderRadius: 14, border: `2px solid ${isOn ? T.sage : T.sageMid}`,
-              background: isOn ? `${T.sage}18` : T.bgCard,
-              display: 'flex', alignItems: 'center', gap: 12,
-              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right',
-              transition: 'all 0.15s',
+              borderColor: isOn ? C.bar : C.border,
+              background: isOn ? `${C.bar}18` : C.card,
             }}
           >
-            <span style={{
-              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-              border: `2px solid ${isOn ? T.sage : T.sageMid}`,
-              background: isOn ? T.sage : 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, color: '#fff',
-              transition: 'all 0.15s',
-            }}>
+            <span
+              className="mn-interview-multi-check"
+              style={{
+                borderColor: isOn ? C.bar : C.border,
+                background: isOn ? C.bar : 'transparent',
+              }}
+            >
               {isOn ? '✓' : ''}
             </span>
-            <span style={{ fontSize: 15, fontWeight: isOn ? 600 : 400, color: T.charcoal }}>
+            <span style={{ fontSize: 15, fontWeight: isOn ? 600 : 400, color: C.ink }}>
               {opt}
             </span>
           </button>
@@ -125,17 +115,9 @@ function MultiSelectInput({ options, selected, onToggle }: {
 function CommentBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false)
   return (
-    <div style={{ marginTop: 16 }}>
+    <div className="mn-interview-comment-wrap">
       {!open ? (
-        <button
-          onClick={() => setOpen(true)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 13, color: T.charcoalLight, fontFamily: 'inherit',
-            display: 'flex', alignItems: 'center', gap: 6,
-            margin: '0 auto',
-          }}
-        >
+        <button onClick={() => setOpen(true)} className="mn-interview-comment-trigger">
           <span>💬</span>
           <span>הוסף הערה</span>
         </button>
@@ -147,13 +129,7 @@ function CommentBox({ value, onChange }: { value: string; onChange: (v: string) 
           rows={3}
           autoFocus
           dir="rtl"
-          style={{
-            width: '100%', background: T.bgCard, borderRadius: 12,
-            border: `1px solid ${T.sageMid}`, padding: '10px 12px',
-            fontSize: 13, color: T.charcoal, fontFamily: 'inherit',
-            outline: 'none', resize: 'none', boxSizing: 'border-box',
-            lineHeight: 1.6, direction: 'rtl',
-          }}
+          className="mn-interview-comment-input"
         />
       )}
     </div>
@@ -177,7 +153,6 @@ export default function InterviewScreen({ navigate }: Props) {
           setState({ phase: 'empty' })
           return
         }
-        // Resume from current_index
         const index = Math.min(session.currentIndex, questions.length - 1)
         if (session.completedAt) {
           setState({ phase: 'done' })
@@ -188,7 +163,6 @@ export default function InterviewScreen({ navigate }: Props) {
       .catch(() => setState({ phase: 'error', message: 'לא ניתן לטעון את השאלות' }))
   }, [])
 
-  // Reset input fields whenever index advances
   useEffect(() => {
     setTextValue('')
     setScaleValue(null)
@@ -217,7 +191,7 @@ export default function InterviewScreen({ navigate }: Props) {
     else if (q.answerType === 'scale' && scaleValue !== null) payload.answerScale = scaleValue
     else if ((q.answerType === 'boolean' || q.answerType === 'boolean_partial') && boolValue) payload.answerBoolean = boolValue
     else if (q.answerType === 'multi_select') payload.answerOptions = multiValue
-    else return // should not reach here — button is disabled
+    else return
 
     setCompleteError(false)
     setState({ ...state, submitting: true })
@@ -232,10 +206,9 @@ export default function InterviewScreen({ navigate }: Props) {
     if (index + 1 >= questions.length) {
       try {
         await completeInterview()
-        loadUmbrellas() // refresh analytics scores in background — don't await
+        loadUmbrellas()
         setState({ phase: 'done' })
       } catch {
-        // Answer was saved but session completion failed — show a visible retry prompt
         setCompleteError(true)
         setState({ phase: 'answering', questions, session, index, submitting: false })
       }
@@ -247,45 +220,34 @@ export default function InterviewScreen({ navigate }: Props) {
   function canProceed(): boolean {
     if (state.phase !== 'answering') return false
     const q = state.questions[state.index]
-    if (q.answerType === 'text') return true // optional text
+    if (q.answerType === 'text') return true
     if (q.answerType === 'scale') return scaleValue !== null
     if (q.answerType === 'boolean' || q.answerType === 'boolean_partial') return boolValue !== null
-    if (q.answerType === 'multi_select') return true // zero selections is valid
+    if (q.answerType === 'multi_select') return true
     return false
   }
 
-  // Loading
   if (state.phase === 'loading') {
     return (
-      <div dir="rtl" style={{
-        minHeight: '100%', background: T.bg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
+      <div dir="rtl" className="mn-interview-center">
         <div style={{
-          width: 32, height: 32, border: `2px solid ${T.sage}`,
-          borderTopColor: 'transparent', borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
+          width: 32, height: 32,
+          border: `2px solid ${C.bar}`, borderTopColor: 'transparent',
+          borderRadius: '50%', animation: 'spin 0.8s linear infinite',
         }} />
       </div>
     )
   }
 
-  // Error
   if (state.phase === 'error') {
     return (
-      <div dir="rtl" style={{
-        minHeight: '100%', background: T.bg, padding: '80px 24px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-      }}>
-        <p style={{ fontSize: 48, marginBottom: 16 }}>⚠️</p>
-        <p style={{ fontSize: 16, color: T.charcoalMid }}>{state.message}</p>
+      <div dir="rtl" className="mn-interview-state-panel">
+        <p className="mn-interview-state-emoji">⚠️</p>
+        <p style={{ fontSize: 16, color: C.muted }}>{state.message}</p>
         <button
           onClick={() => navigate('home')}
-          style={{
-            marginTop: 32, padding: '14px 32px', borderRadius: 16, border: 'none',
-            background: T.sage, color: '#fff', fontSize: 15, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
+          className="mn-interview-primary-btn"
+          style={{ marginTop: 32 }}
         >
           חזרה לבית
         </button>
@@ -293,118 +255,68 @@ export default function InterviewScreen({ navigate }: Props) {
     )
   }
 
-  // Empty state — no questions today
   if (state.phase === 'empty') {
     return (
-      <div dir="rtl" style={{
-        minHeight: '100%', background: T.bg, padding: '80px 24px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-      }}>
-        <p style={{ fontSize: 56, marginBottom: 16 }}>☀️</p>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, marginBottom: 8 }}>
-          אין שאלות להיום
-        </h2>
-        <p style={{ fontSize: 14, color: T.charcoalLight, lineHeight: 1.7, marginBottom: 32 }}>
-          לא מתוכננות שאלות לתאריך זה. חזור מחר!
-        </p>
-        <button
-          onClick={() => navigate('home')}
-          style={{
-            width: '100%', padding: '14px 0', borderRadius: 16, border: 'none',
-            background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
-            color: '#fff', fontSize: 15, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
+      <div dir="rtl" className="mn-interview-state-panel">
+        <p className="mn-interview-state-emoji">☀️</p>
+        <h2 className="mn-interview-state-title">אין שאלות להיום</h2>
+        <p className="mn-interview-state-body">לא מתוכננות שאלות לתאריך זה. חזור מחר!</p>
+        <button onClick={() => navigate('home')} className="mn-interview-primary-btn">
           חזרה לבית
         </button>
       </div>
     )
   }
 
-  // Done / completion screen
   if (state.phase === 'done') {
     return (
-      <div dir="rtl" style={{
-        minHeight: '100%', background: T.bg, padding: '80px 24px 100px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
-        animation: 'checkin-in 0.4s cubic-bezier(0.22,1,0.36,1) both',
-      }}>
-        <p style={{ fontSize: 64, marginBottom: 16 }}>✅</p>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: T.charcoal, marginBottom: 8 }}>
-          סיימתי!
-        </h2>
-        <p style={{ fontSize: 14, color: T.charcoalMid, lineHeight: 1.7, marginBottom: 40, maxWidth: 280 }}>
-          תודה דן 🌿 ענית על כל השאלות להיום. נפש שמרה הכל.
-        </p>
-        <button
-          onClick={() => navigate('home')}
-          style={{
-            width: '100%', padding: '14px 0', borderRadius: 16, border: 'none',
-            background: `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`,
-            color: '#fff', fontSize: 15, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
+      <div dir="rtl" className="mn-interview-state-panel mn-interview-done-panel">
+        <p className="mn-interview-state-emoji done">✅</p>
+        <h2 className="mn-interview-state-title">סיימתי!</h2>
+        <p className="mn-interview-state-body">תודה דן 🌿 ענית על כל השאלות להיום. נפש שמרה הכל.</p>
+        <button onClick={() => navigate('home')} className="mn-interview-primary-btn">
           חזרה לבית
         </button>
       </div>
     )
   }
 
-  // Main interview flow
   const { questions, index, submitting } = state
   const q = questions[index]
   const total = questions.length
   const progressPct = Math.round((index / total) * 100)
   const uColor = umbrellaColor(q.umbrellaName)
+  const active = canProceed() && !submitting
 
   return (
-    <div dir="rtl" style={{ minHeight: '100%', background: T.bg, paddingBottom: 100 }}>
-      {/* Progress bar + header */}
-      <div style={{ padding: '52px 20px 0', background: T.bgCard, paddingBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: T.charcoal }}>ראיון יומי</p>
-          <p style={{ fontSize: 13, color: T.charcoalLight }}>{index + 1} / {total}</p>
+    <div dir="rtl" className="mn-interview-screen">
+      {/* Progress header */}
+      <div className="mn-interview-header">
+        <div className="mn-interview-header-row">
+          <span className="mn-interview-title">ראיון יומי</span>
+          <span className="mn-interview-counter">{index + 1} / {total}</span>
         </div>
-        <div style={{ height: 4, background: T.sageLight, borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', background: T.sage, borderRadius: 4,
-            width: `${progressPct}%`,
-            transition: 'width 0.4s cubic-bezier(0.22,1,0.36,1)',
-          }} />
+        <div className="mn-interview-progress-track">
+          <div className="mn-interview-progress-fill" style={{ width: `${progressPct}%` }} />
         </div>
       </div>
 
-      {/* Question card — key forces re-mount animation on each step */}
-      <div
-        key={`q-${index}`}
-        style={{
-          padding: '40px 24px',
-          animation: 'checkin-in 0.32s cubic-bezier(0.22,1,0.36,1) both',
-        }}
-      >
+      {/* Question card — keyed to force re-mount animation on each step */}
+      <div key={`q-${index}`} className="mn-interview-card">
         {/* Umbrella badge */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: `${uColor}22`, borderRadius: 20,
-            padding: '6px 14px',
-          }}>
+        <div className="mn-interview-badge-wrap">
+          <div
+            className="mn-interview-badge"
+            style={{ background: `${uColor}22` }}
+          >
             <span style={{ fontSize: 16 }}>{q.umbrellaIcon}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: uColor }}>{q.umbrellaName}</span>
+            <span className="mn-interview-badge-label" style={{ color: uColor }}>{q.umbrellaName}</span>
           </div>
         </div>
 
         {/* Question text */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <h2 style={{
-            fontSize: 20, fontWeight: 700, color: T.charcoal,
-            lineHeight: 1.5, maxWidth: 320, margin: '0 auto',
-            direction: 'rtl',
-          }}>
-            {q.text}
-          </h2>
+        <div className="mn-interview-question-wrap">
+          <h2 className="mn-interview-question-text">{q.text}</h2>
         </div>
 
         {/* Answer input */}
@@ -415,13 +327,7 @@ export default function InterviewScreen({ navigate }: Props) {
             placeholder="כתוב כאן..."
             rows={4}
             dir="rtl"
-            style={{
-              width: '100%', background: T.bgCard, borderRadius: 16,
-              border: `1px solid ${T.sageMid}`, padding: 14,
-              fontSize: 15, color: T.charcoal, fontFamily: 'inherit',
-              outline: 'none', resize: 'none', boxSizing: 'border-box',
-              lineHeight: 1.6, direction: 'rtl',
-            }}
+            className="mn-interview-text-input"
           />
         )}
 
@@ -450,33 +356,25 @@ export default function InterviewScreen({ navigate }: Props) {
           />
         )}
 
-        {/* Comment box — shown below every answer type */}
         <CommentBox value={commentValue} onChange={setCommentValue} />
 
-        {/* Next button */}
         <button
           onClick={handleNext}
-          disabled={!canProceed() || submitting}
+          disabled={!active}
+          className="mn-interview-next-btn"
           style={{
-            width: '100%', marginTop: 28, padding: '14px 0',
-            borderRadius: 16, border: 'none',
-            background: canProceed() && !submitting
-              ? `linear-gradient(135deg, ${T.sage} 0%, ${T.blue} 100%)`
-              : T.sageLight,
-            color: canProceed() && !submitting ? '#fff' : T.charcoalLight,
-            fontSize: 15, fontWeight: 600,
-            cursor: canProceed() && !submitting ? 'pointer' : 'default',
-            fontFamily: 'inherit',
-            transition: 'all 0.18s',
+            background: active
+              ? `linear-gradient(135deg, ${C.bar} 0%, ${C.line} 100%)`
+              : C.faint,
+            color: active ? '#fff' : C.muted,
+            cursor: active ? 'pointer' : 'default',
           }}
         >
           {submitting ? '...' : index + 1 === total ? 'סיים ✓' : 'הבא ›'}
         </button>
+
         {completeError && index + 1 === total && (
-          <p style={{
-            marginTop: 12, textAlign: 'center',
-            fontSize: 13, color: T.red, lineHeight: 1.5,
-          }}>
+          <p className="mn-interview-error-msg">
             לא הצלחנו לשמור את הסיום — נסה שוב
           </p>
         )}
