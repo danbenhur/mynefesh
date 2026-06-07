@@ -19,10 +19,6 @@ router.get(
     const gotEmail = profile.username.toLowerCase()
     const allowedEmail = (process.env.ALLOWED_GOOGLE_EMAIL ?? '').toLowerCase()
 
-    console.log('[auth/google/callback] profile.username =', profile.username)
-    console.log('[auth/google/callback] ALLOWED_GOOGLE_EMAIL =', process.env.ALLOWED_GOOGLE_EMAIL)
-    console.log('[auth/google/callback] comparison:', gotEmail, '===', allowedEmail, '->', gotEmail === allowedEmail)
-
     if (!allowedEmail || gotEmail !== allowedEmail) {
       res.redirect(`${frontendUrl}/?auth_error=email-mismatch`)
       return
