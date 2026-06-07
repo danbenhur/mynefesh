@@ -101,46 +101,41 @@ export function ResolutionsSection({
       created = await createResolution(payload)
       console.log('Resolution created:', created)
     } catch (err) {
-      console.error('Resolution save failed:', String(err), { err, payload })
+      console.error('Resolution save failed:', { err, payload })
 
-      let serverMsg: string | null = null
-      let treatAsSuccess = false
+      setSavingR(false)
 
       if (err instanceof Error) {
         const match = err.message.match(/^API (\d+): (.+)$/s)
         if (match) {
+          // Server responded with a known HTTP error status — resolution was NOT saved.
           const httpStatus = parseInt(match[1], 10)
-          const body = match[2]
-          if (httpStatus >= 200 && httpStatus < 300 && body.startsWith('[json parse failed:')) {
-            // Server responded 2xx (record IS in DB) but response body was unreadable.
-            // Treat as success: refresh the list and close the sheet normally.
-            treatAsSuccess = true
-          } else {
-            try {
-              const parsed = JSON.parse(body)
-              serverMsg = typeof parsed.error === 'string' ? parsed.error : `שגיאת שרת ${httpStatus}`
-            } catch {
-              serverMsg = body.startsWith('<!') ? `שגיאת שרת ${httpStatus}` : `שגיאת שרת ${httpStatus}`
-            }
+          let serverMsg: string
+          try {
+            const body = JSON.parse(match[2])
+            serverMsg = typeof body.error === 'string' ? body.error : `שגיאת שרת ${httpStatus}`
+          } catch {
+            serverMsg = `שגיאת שרת ${httpStatus}`
           }
-        } else if (err.name === 'SyntaxError') {
-          serverMsg = 'תשובה לא תקינה מהשרת'
-        } else if (err.name === 'TypeError') {
-          serverMsg = 'שגיאת רשת — בדוק חיבור ונסה שוב'
+          setSaveError(serverMsg)
+          setTimeout(() => setSaveError(null), 4000)
+          return
+        }
+        // TypeError = network failure; SyntaxError = 201 body couldn't parse.
+        // Either way the server MAY have committed the record — don't block re-creates.
+        // Close the sheet, refresh the list, show an ambiguous warning.
+        if (err.name === 'TypeError' || err.name === 'SyntaxError') {
+          setResolutionForm(DEFAULT_RESOLUTION_FORM)
+          setShowAddResolution(false)
+          listResolutions(umbrellaId).then(onResolutionsListChange).catch(console.warn)
+          setSuccessMsg('ייתכן שההחלטה נוצרה — רענן אם אינה מופיעה')
+          setTimeout(() => setSuccessMsg(null), 4000)
+          return
         }
       }
 
-      setSavingR(false)
-      if (treatAsSuccess) {
-        setResolutionForm(DEFAULT_RESOLUTION_FORM)
-        setShowAddResolution(false)
-        setSuccessMsg('ההחלטה נוצרה')
-        setTimeout(() => setSuccessMsg(null), 1500)
-        listResolutions(umbrellaId).then(onResolutionsListChange).catch(console.warn)
-      } else {
-        setSaveError(serverMsg ?? 'לא הצלחנו לשמור — נסה שוב')
-        setTimeout(() => setSaveError(null), 4000)
-      }
+      setSaveError('לא הצלחנו לשמור — נסה שוב')
+      setTimeout(() => setSaveError(null), 4000)
       return
     }
 
