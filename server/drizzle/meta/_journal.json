@@ -113,6 +113,13 @@
       "when": 1780833600000,
       "tag": "0015_recover_resolutions",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780834200000,
+      "tag": "0016_recover_api_usage",
+      "breakpoints": true
     }
   ]
 }
