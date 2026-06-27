@@ -39,7 +39,7 @@ function jerusalemDateParts(date: Date): { dow: number; dom: number; moy: number
   return { dow, dom, moy }
 }
 
-export async function composeTodaysQuestions(date: Date): Promise<ComposedQuestion[]> {
+export async function composeTodaysQuestions(date: Date, userId: string): Promise<ComposedQuestion[]> {
   const db = getDb()
   const { dow, dom, moy } = jerusalemDateParts(date)
 
@@ -55,7 +55,7 @@ export async function composeTodaysQuestions(date: Date): Promise<ComposedQuesti
     })
     .from(umbrellaQuestions)
     .innerJoin(umbrellas, eq(umbrellaQuestions.umbrellaId, umbrellas.id))
-    .where(eq(umbrellaQuestions.enabled, true))
+    .where(and(eq(umbrellaQuestions.enabled, true), eq(umbrellas.userId, userId)))
     .orderBy(asc(umbrellas.position), asc(umbrellaQuestions.position))
 
   const matching = rows.filter(({ q }) => {

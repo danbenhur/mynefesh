@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
     const rows = await db.select()
       .from(healthHistory)
       .where(and(
+        eq(healthHistory.userId, req.user!.id),
         eq(healthHistory.umbrellaId, umbrellaId),
         gte(healthHistory.recordedAt, since),
       ))
@@ -51,6 +52,7 @@ router.post('/', async (req, res) => {
   try {
     const db = getDb()
     const [row] = await db.insert(healthHistory).values({
+      userId: req.user!.id,
       umbrellaId: parse.data.umbrellaId,
       score: parse.data.score,
       recordedAt: parse.data.recordedAt ? new Date(parse.data.recordedAt) : new Date(),

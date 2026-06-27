@@ -35,23 +35,26 @@ async function recordSmsUsage(): Promise<void> {
   }
 }
 
-export async function sendSMS(text: string): Promise<string | null> {
+export async function sendSMS(text: string, to?: string): Promise<string | null> {
   const todayCount = await getTodaySmsCount()
+  console.log(`[sms-diag] todayCount=${todayCount} limit=${DAILY_SMS_LIMIT}`)
   if (todayCount >= DAILY_SMS_LIMIT) {
     console.warn(`[SMS CAP] Daily SMS limit reached (${todayCount}/${DAILY_SMS_LIMIT}), suppressing send`)
     return null
   }
 
   const client = getClient()
+  console.log(`[sms-diag] twilioClient=${client ? 'ok' : 'null'} sid?=${!!process.env.TWILIO_ACCOUNT_SID} token?=${!!process.env.TWILIO_AUTH_TOKEN}`)
   if (!client) {
     console.warn('[messaging] Twilio env vars not set — skipping send')
     return null
   }
 
   const from = process.env.TWILIO_SMS_FROM ?? process.env.TWILIO_WHATSAPP_FROM
-  const to = process.env.USER_SMS_NUMBER ?? process.env.USER_WHATSAPP_NUMBER
-  if (!from || !to) {
-    console.warn('[messaging] No from/to configured (set TWILIO_SMS_FROM + USER_SMS_NUMBER) — skipping send')
+  const destination = to ?? process.env.USER_SMS_NUMBER ?? process.env.USER_WHATSAPP_NUMBER
+  console.log(`[sms-diag] from=${from ? 'set' : 'MISSING'} destination=${destination ? destination.slice(-4) : 'MISSING'}`)
+  if (!from || !destination) {
+    console.warn('[messaging] No from/to configured — skipping send')
     return null
   }
 
@@ -59,12 +62,14 @@ export async function sendSMS(text: string): Promise<string | null> {
     const statusCallback = process.env.PUBLIC_URL
       ? `${process.env.PUBLIC_URL}/webhook/whatsapp-status`
       : undefined
-    const msg = await client.messages.create({ from, to, body: text, statusCallback })
+    console.log(`[sms-diag] attempting twilio.messages.create from=...${from?.slice(-4)} to=...${destination.slice(-4)}`)
+    const msg = await client.messages.create({ from, to: destination, body: text, statusCallback })
     console.log(`[messaging] Sent message SID=${msg.sid}`)
     await recordSmsUsage()
     return msg.sid
   } catch (err) {
     console.error('[messaging] Send failed:', err)
+    console.error('[sms-diag] twilio error code=', (err as any)?.code, 'status=', (err as any)?.status, 'moreInfo=', (err as any)?.moreInfo)
     return null
   }
 }

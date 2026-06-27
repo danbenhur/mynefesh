@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { resolutions, umbrellaQuestions } from '../db/schema.js'
+import { resolutions, umbrellas, umbrellaQuestions } from '../db/schema.js'
 import { computeResolutionProgress, todayJerusalem } from '../lib/resolutions.js'
 
 type ResRow = typeof resolutions.$inferSelect
@@ -23,12 +23,12 @@ function resShape(r: ResRow, progress?: Awaited<ReturnType<typeof computeResolut
   }
 }
 
-async function loadQuestionType(questionId: string): Promise<string | null> {
+async function loadQuestionType(questionId: string, userId: string): Promise<string | null> {
   const db = getDb()
   const [q] = await db
     .select({ answerType: umbrellaQuestions.answerType })
     .from(umbrellaQuestions)
-    .where(eq(umbrellaQuestions.id, questionId))
+    .where(and(eq(umbrellaQuestions.id, questionId), eq(umbrellaQuestions.userId, userId)))
   return q?.answerType ?? null
 }
 
@@ -41,7 +41,7 @@ umbrellaResolutionsRouter.get('/:umbrellaId/resolutions', async (req, res) => {
     const rows = await db
       .select()
       .from(resolutions)
-      .where(eq(resolutions.umbrellaId, req.params.umbrellaId))
+      .where(and(eq(resolutions.umbrellaId, req.params.umbrellaId), eq(resolutions.userId, req.user!.id)))
 
     // Load question types in one batch query
     const questionIds = [...new Set(rows.map(r => r.questionId))]
@@ -49,7 +49,7 @@ umbrellaResolutionsRouter.get('/:umbrellaId/resolutions', async (req, res) => {
       questionIds.map(id => db
         .select({ id: umbrellaQuestions.id, answerType: umbrellaQuestions.answerType })
         .from(umbrellaQuestions)
-        .where(eq(umbrellaQuestions.id, id))
+        .where(and(eq(umbrellaQuestions.id, id), eq(umbrellaQuestions.userId, req.user!.id)))
         .then(qs => qs[0])
       )
     )
@@ -116,12 +116,24 @@ resolutionsRouter.post('/', async (req, res) => {
     let questionId = bodyQuestionId!
     let questionAnswerType: string
 
+    // Verify the umbrella belongs to this user
+    const [umb] = await db
+      .select({ id: umbrellas.id })
+      .from(umbrellas)
+      .where(and(eq(umbrellas.id, umbrellaId), eq(umbrellas.userId, req.user!.id)))
+      .limit(1)
+    if (!umb) {
+      res.status(404).json({ error: 'Umbrella not found' })
+      return
+    }
+
     step = 'question'
     if (newQuestion) {
       const qRows = await db
         .insert(umbrellaQuestions)
         .values({
           umbrellaId,
+          userId: req.user!.id,
           text: newQuestion.text,
           cadence: 'daily',
           answerType: newQuestion.answerType,
@@ -136,12 +148,16 @@ resolutionsRouter.post('/', async (req, res) => {
       questionAnswerType = q.answerType
       console.log('[POST /resolutions] step=question-insert ok questionId=%s', questionId)
     } else {
-      const qType = await loadQuestionType(questionId)
-      if (!qType) {
+      // Verify the question belongs to this user
+      const [existingQ] = await db
+        .select({ answerType: umbrellaQuestions.answerType })
+        .from(umbrellaQuestions)
+        .where(and(eq(umbrellaQuestions.id, questionId), eq(umbrellaQuestions.userId, req.user!.id)))
+      if (!existingQ) {
         res.status(404).json({ error: 'Question not found' })
         return
       }
-      questionAnswerType = qType
+      questionAnswerType = existingQ.answerType
       console.log('[POST /resolutions] step=question-lookup ok questionId=%s type=%s', questionId, questionAnswerType)
     }
 
@@ -157,7 +173,7 @@ resolutionsRouter.post('/', async (req, res) => {
     step = 'resolution-insert'
     const resRows = await db
       .insert(resolutions)
-      .values({ umbrellaId, questionId, title, startDate, endDate, successThreshold: successThreshold ?? null })
+      .values({ umbrellaId, questionId, title, startDate, endDate, successThreshold: successThreshold ?? null, userId: req.user!.id })
       .returning()
     const row = resRows[0]
     if (!row) throw new Error('resolutions INSERT returned empty RETURNING — data may be committed; refresh to verify')
@@ -195,7 +211,7 @@ resolutionsRouter.patch('/:id', async (req, res) => {
     const [existing] = await db
       .select()
       .from(resolutions)
-      .where(eq(resolutions.id, req.params.id))
+      .where(and(eq(resolutions.id, req.params.id), eq(resolutions.userId, req.user!.id)))
 
     if (!existing) {
       res.status(404).json({ error: 'Resolution not found' })
@@ -211,7 +227,7 @@ resolutionsRouter.patch('/:id', async (req, res) => {
         res.status(400).json({ error: 'Only active resolutions can be abandoned' })
         return
       }
-      const qType = await loadQuestionType(existing.questionId)
+      const qType = await loadQuestionType(existing.questionId, req.user!.id)
       const progress = await computeResolutionProgress(
         { questionId: existing.questionId, startDate: String(existing.startDate), endDate: String(existing.endDate), successThreshold: existing.successThreshold },
         qType ?? 'boolean',
@@ -239,14 +255,14 @@ resolutionsRouter.get('/:id/progress', async (req, res) => {
     const [r] = await db
       .select()
       .from(resolutions)
-      .where(eq(resolutions.id, req.params.id))
+      .where(and(eq(resolutions.id, req.params.id), eq(resolutions.userId, req.user!.id)))
 
     if (!r) {
       res.status(404).json({ error: 'Resolution not found' })
       return
     }
 
-    const qType = await loadQuestionType(r.questionId)
+    const qType = await loadQuestionType(r.questionId, req.user!.id)
     const progress = await computeResolutionProgress(
       { questionId: r.questionId, startDate: String(r.startDate), endDate: String(r.endDate), successThreshold: r.successThreshold },
       qType ?? 'boolean',

@@ -353,3 +353,33 @@ export interface TimeseriesResponse {
 
 export const getTimeseries = (slice: TimeseriesSlice, granularity: TimeseriesGranularity) =>
   req<TimeseriesResponse>(`/api/analytics/timeseries?slice=${slice}&granularity=${granularity}`)
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+
+export const completeOnboarding = (umbrellaList: Array<{ name: string; icon: string }>) =>
+  req<{ ok: boolean }>('/api/onboarding/complete', {
+    method: 'POST',
+    body: JSON.stringify({ umbrellas: umbrellaList }),
+  })
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export interface ApiInvite {
+  id: string
+  email: string
+  notes: string | null
+  invitedAt: string
+  revokedAt: string | null
+}
+
+export const listInvites = () =>
+  req<ApiInvite[]>('/api/admin/invites')
+
+export const addInvite = (email: string, notes?: string) =>
+  req<ApiInvite>('/api/admin/invites', {
+    method: 'POST',
+    body: JSON.stringify({ email, notes }),
+  })
+
+export const revokeInvite = (id: string) =>
+  req<{ ok: boolean; revokedAt: string }>(`/api/admin/invites/${id}`, { method: 'DELETE' })

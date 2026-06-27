@@ -10,25 +10,26 @@ function sinceDate(days: number): string {
 
 // AVG(answer_normalized) over the last N days, scaled 0-100.
 // Returns null when there are no answers for that umbrella.
-export async function computeUmbrellaHealthScore(umbrellaId: string, days = 14): Promise<number | null> {
+export async function computeUmbrellaHealthScore(umbrellaId: string, days = 14, userId: string): Promise<number | null> {
   const db = getDb()
   const [row] = await db
     .select({ avg: sql<string>`AVG(${questionAnswers.answerNormalized})` })
     .from(questionAnswers)
     .innerJoin(umbrellaQuestions, eq(questionAnswers.questionId, umbrellaQuestions.id))
+    .innerJoin(umbrellas, eq(umbrellaQuestions.umbrellaId, umbrellas.id))
     .where(and(
       eq(umbrellaQuestions.umbrellaId, umbrellaId),
+      eq(umbrellas.userId, userId),
       gte(questionAnswers.interviewDate, sinceDate(days)),
       isNotNull(questionAnswers.answerNormalized),
     ))
-
   if (row.avg == null) return null
   return Math.round(Number(row.avg) * 100)
 }
 
 // Per-day average score (0-100) for one umbrella over the last N days.
 // Days with no answers are omitted — caller should handle gaps.
-export async function getUmbrellaDailyTrend(umbrellaId: string, days = 42): Promise<{ date: string; score: number }[]> {
+export async function getUmbrellaDailyTrend(umbrellaId: string, days = 42, userId: string): Promise<{ date: string; score: number }[]> {
   const db = getDb()
   const rows = await db
     .select({
@@ -37,19 +38,20 @@ export async function getUmbrellaDailyTrend(umbrellaId: string, days = 42): Prom
     })
     .from(questionAnswers)
     .innerJoin(umbrellaQuestions, eq(questionAnswers.questionId, umbrellaQuestions.id))
+    .innerJoin(umbrellas, eq(umbrellaQuestions.umbrellaId, umbrellas.id))
     .where(and(
       eq(umbrellaQuestions.umbrellaId, umbrellaId),
+      eq(umbrellas.userId, userId),
       gte(questionAnswers.interviewDate, sinceDate(days)),
       isNotNull(questionAnswers.answerNormalized),
     ))
     .groupBy(questionAnswers.interviewDate)
     .orderBy(questionAnswers.interviewDate)
-
   return rows.map(r => ({ date: r.date, score: Math.round(Number(r.avg) * 100) }))
 }
 
 // Per-day answer data for a single question over the last N days.
-export async function getQuestionDailyTrend(questionId: string, days = 90): Promise<{
+export async function getQuestionDailyTrend(questionId: string, days = 90, userId: string): Promise<{
   date: string
   value: number | null
   answerText: string | null
@@ -66,27 +68,26 @@ export async function getQuestionDailyTrend(questionId: string, days = 90): Prom
       answerBoolean: questionAnswers.answerBoolean,
     })
     .from(questionAnswers)
+    .innerJoin(umbrellaQuestions, eq(questionAnswers.questionId, umbrellaQuestions.id))
+    .innerJoin(umbrellas, eq(umbrellaQuestions.umbrellaId, umbrellas.id))
     .where(and(
       eq(questionAnswers.questionId, questionId),
+      eq(umbrellas.userId, userId),
       gte(questionAnswers.interviewDate, sinceDate(days)),
     ))
     .orderBy(questionAnswers.interviewDate)
-
   return rows.map(r => ({
-    date: r.date,
-    value: r.value,
-    answerText: r.answerText,
-    answerScale: r.answerScale,
-    answerBoolean: r.answerBoolean,
+    date: r.date, value: r.value, answerText: r.answerText,
+    answerScale: r.answerScale, answerBoolean: r.answerBoolean,
   }))
 }
 
 // Batch version: 2 parallel queries — one GROUP BY aggregation + one umbrella ID list.
 // All umbrella IDs appear in the result; those with no answers get null.
-export async function getAllUmbrellaHealthScores(days = 14): Promise<Record<string, number | null>> {
+export async function getAllUmbrellaHealthScores(days = 14, userId: string): Promise<Record<string, number | null>> {
   const db = getDb()
   const [umbrellaRows, scoreRows] = await Promise.all([
-    db.select({ id: umbrellas.id }).from(umbrellas),
+    db.select({ id: umbrellas.id }).from(umbrellas).where(eq(umbrellas.userId, userId)),
     db
       .select({
         umbrellaId: umbrellaQuestions.umbrellaId,
@@ -94,19 +95,16 @@ export async function getAllUmbrellaHealthScores(days = 14): Promise<Record<stri
       })
       .from(questionAnswers)
       .innerJoin(umbrellaQuestions, eq(questionAnswers.questionId, umbrellaQuestions.id))
+      .innerJoin(umbrellas, eq(umbrellaQuestions.umbrellaId, umbrellas.id))
       .where(and(
+        eq(umbrellas.userId, userId),
         gte(questionAnswers.interviewDate, sinceDate(days)),
         isNotNull(questionAnswers.answerNormalized),
       ))
       .groupBy(umbrellaQuestions.umbrellaId),
   ])
-
   const out: Record<string, number | null> = {}
-  for (const { id } of umbrellaRows) {
-    out[id] = null
-  }
-  for (const r of scoreRows) {
-    out[r.umbrellaId] = Math.round(Number(r.avg) * 100)
-  }
+  for (const { id } of umbrellaRows) out[id] = null
+  for (const r of scoreRows) out[r.umbrellaId] = Math.round(Number(r.avg) * 100)
   return out
 }

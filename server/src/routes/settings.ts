@@ -7,17 +7,15 @@ import { invalidateSettingsCache } from '../lib/scheduler.js'
 
 const router = Router()
 
-async function getSingletonRow() {
-  const db = getDb()
-  const rows = await db.select().from(userSettings).limit(1)
-  if (rows.length > 0) return rows[0]
-  const inserted = await db.insert(userSettings).values({}).returning()
-  return inserted[0]
-}
-
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const row = await getSingletonRow()
+    const db = getDb()
+    const [row] = await db.select().from(userSettings)
+      .where(eq(userSettings.userId, req.user!.id)).limit(1)
+    if (!row) {
+      res.status(404).json({ error: 'Settings not found' })
+      return
+    }
     res.json({
       checkinTime: row.checkinTime,
       phoneNumber: row.phoneNumber ?? '',
@@ -38,9 +36,9 @@ const patchSchema = z.object({
     .optional(),
   phoneNumber: z
     .string()
-    .refine(v => v === '' || v.startsWith('+') || v.startsWith('whatsapp:+'), {
-      message: 'phoneNumber must start with + or whatsapp:+',
-    })
+    .regex(/^\+[1-9]\d{6,14}$/, 'phone must be E.164 format (+972...)')
+    .optional()
+    .or(z.literal(''))
     .optional(),
   shabbatMode: z.boolean().optional(),
   saturdayCheckinTime: z
@@ -58,18 +56,23 @@ router.patch('/', async (req, res) => {
   }
 
   try {
-    const row = await getSingletonRow()
-    const updates: Partial<typeof row> = { updatedAt: new Date() }
-    if (parsed.data.checkinTime !== undefined) updates.checkinTime = parsed.data.checkinTime
-    if (parsed.data.phoneNumber !== undefined) updates.phoneNumber = parsed.data.phoneNumber || null
-    if (parsed.data.shabbatMode !== undefined) updates.shabbatMode = parsed.data.shabbatMode
-    if (parsed.data.saturdayCheckinTime !== undefined) updates.saturdayCheckinTime = parsed.data.saturdayCheckinTime
+    const db = getDb()
+    const patch: Record<string, unknown> = { updatedAt: new Date() }
+    if (parsed.data.checkinTime !== undefined) patch.checkinTime = parsed.data.checkinTime
+    if (parsed.data.phoneNumber !== undefined) patch.phoneNumber = parsed.data.phoneNumber || null
+    if (parsed.data.shabbatMode !== undefined) patch.shabbatMode = parsed.data.shabbatMode
+    if (parsed.data.saturdayCheckinTime !== undefined) patch.saturdayCheckinTime = parsed.data.saturdayCheckinTime
 
-    const updated = await getDb()
+    const updated = await db
       .update(userSettings)
-      .set(updates)
-      .where(eq(userSettings.id, row.id))
+      .set(patch)
+      .where(eq(userSettings.userId, req.user!.id))
       .returning()
+
+    if (updated.length === 0) {
+      res.status(404).json({ error: 'Settings not found' })
+      return
+    }
 
     // When checkinTime changes, reset today's session if it's snoozed so the
     // evening tick can still fire. Skip completed/final_sent (already done for today).
@@ -83,20 +86,20 @@ router.patch('/', async (req, res) => {
       )
       const today = `${parts.year}-${parts.month}-${parts.day}`
 
-      const existing = await getDb()
+      const existing = await db
         .select({ state: whatsappSession.state })
         .from(whatsappSession)
         .where(eq(whatsappSession.date, today))
 
       if (existing.length > 0 && existing[0].state === 'snoozed') {
-        await getDb()
+        await db
           .update(whatsappSession)
           .set({ state: 'pending', snoozeCount: 0, lastMessageAt: null, nextSendAt: null })
           .where(eq(whatsappSession.date, today))
       }
     }
 
-    invalidateSettingsCache()
+    invalidateSettingsCache(req.user!.id)
 
     res.json({
       checkinTime: updated[0].checkinTime,

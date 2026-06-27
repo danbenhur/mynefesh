@@ -8,6 +8,8 @@ import ProfileScreen from './components/ProfileScreen'
 import SettingsScreen from './components/SettingsScreen'
 import InterviewScreen from './components/InterviewScreen'
 import ArchivedScreen from './components/ArchivedScreen'
+import OnboardingScreen from './components/OnboardingScreen'
+import AdminScreen from './components/AdminScreen'
 import { useStore, findUmbrella } from './store/useStore'
 import type { AppScreen, ScreenData } from './types/nav'
 
@@ -18,9 +20,11 @@ interface NavEntry {
 
 interface AuthUser {
   id: string
-  username: string
-  displayName: string
-  avatar?: string
+  email: string
+  name: string
+  avatar?: string | null
+  onboarding_completed_at: string | null
+  is_admin: boolean
 }
 
 interface AuthState {
@@ -132,7 +136,10 @@ export default function App() {
             {authError === 'session-save-failed' && (
               <strong>שמירת הסשן נכשלה — נסה שוב</strong>
             )}
-            {!['email-mismatch','login-failed','session-save-failed'].includes(authError ?? '') && (
+            {authError === 'access-denied' && (
+              <strong>הגישה נדחתה — כתובת המייל אינה מורשית לשימוש בApp</strong>
+            )}
+            {!['email-mismatch','login-failed','session-save-failed','access-denied'].includes(authError ?? '') && (
               <strong>שגיאת הזדהות — נסה שוב</strong>
             )}
           </div>
@@ -159,6 +166,19 @@ export default function App() {
         </button>
       </div>
     )
+  }
+
+  // New user: onboarding not completed — show setup wizard
+  if (auth.authenticated && auth.user?.onboarding_completed_at === null) {
+    return <OnboardingScreen onComplete={() => {
+      // Refresh auth state to pick up updated onboarding_completed_at
+      fetch(`${API_BASE}/auth/me`, { credentials: 'include' })
+        .then(r => r.json())
+        .then((data: { authenticated: boolean; user?: AuthUser }) => {
+          setAuth({ loading: false, authenticated: data.authenticated, user: data.user })
+        })
+        .catch(() => {})
+    }} />
   }
 
   return (
@@ -190,6 +210,8 @@ export default function App() {
         {current.screen === 'interview' && <InterviewScreen navigate={navigate} />}
 
         {current.screen === 'archived' && <ArchivedScreen navigate={navigate} goBack={goBack} />}
+
+        {current.screen === 'admin' && <AdminScreen navigate={navigate} goBack={goBack} />}
       </div>
 
       <BottomNav

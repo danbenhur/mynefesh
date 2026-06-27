@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { eq, asc } from 'drizzle-orm'
+import { and, eq, asc } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
-import { umbrellaQuestions } from '../db/schema.js'
+import { umbrellas, umbrellaQuestions } from '../db/schema.js'
 
 type QRow = typeof umbrellaQuestions.$inferSelect
 
@@ -88,7 +88,10 @@ umbrellaQuestionsRouter.get('/:umbrellaId/questions', async (req, res) => {
     const rows = await db
       .select()
       .from(umbrellaQuestions)
-      .where(eq(umbrellaQuestions.umbrellaId, req.params.umbrellaId))
+      .where(and(
+        eq(umbrellaQuestions.umbrellaId, req.params.umbrellaId),
+        eq(umbrellaQuestions.userId, req.user!.id),
+      ))
       .orderBy(asc(umbrellaQuestions.position), asc(umbrellaQuestions.createdAt))
     res.json(rows.map(qShape))
   } catch (err) {
@@ -105,9 +108,18 @@ umbrellaQuestionsRouter.post('/:umbrellaId/questions', async (req, res) => {
   }
   try {
     const db = getDb()
+
+    // Verify the umbrella belongs to this user
+    const [umb] = await db
+      .select({ id: umbrellas.id })
+      .from(umbrellas)
+      .where(and(eq(umbrellas.id, req.params.umbrellaId), eq(umbrellas.userId, req.user!.id)))
+      .limit(1)
+    if (!umb) { res.status(404).json({ error: 'Umbrella not found' }); return }
+
     const [row] = await db
       .insert(umbrellaQuestions)
-      .values({ ...parse.data, umbrellaId: req.params.umbrellaId })
+      .values({ ...parse.data, umbrellaId: req.params.umbrellaId, userId: req.user!.id })
       .returning()
     res.status(201).json(qShape(row))
   } catch (err) {
@@ -130,7 +142,7 @@ questionsRouter.patch('/:id', async (req, res) => {
     const [row] = await db
       .update(umbrellaQuestions)
       .set({ ...parse.data, updatedAt: new Date() })
-      .where(eq(umbrellaQuestions.id, req.params.id))
+      .where(and(eq(umbrellaQuestions.id, req.params.id), eq(umbrellaQuestions.userId, req.user!.id)))
       .returning()
     if (!row) { res.status(404).json({ error: 'Question not found' }); return }
     res.json(qShape(row))
@@ -145,7 +157,7 @@ questionsRouter.delete('/:id', async (req, res) => {
     const db = getDb()
     const [row] = await db
       .delete(umbrellaQuestions)
-      .where(eq(umbrellaQuestions.id, req.params.id))
+      .where(and(eq(umbrellaQuestions.id, req.params.id), eq(umbrellaQuestions.userId, req.user!.id)))
       .returning()
     if (!row) { res.status(404).json({ error: 'Question not found' }); return }
     res.status(204).end()

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { C } from '../lib/dashboardTheme'
-import { umbrellaColor } from '../lib/theme'
+import { T, umbrellaColor } from '../lib/theme'
 import Ring from './Ring'
 import Icon from './Icon'
 import { getSettings, updateSettings } from '../lib/api'
@@ -12,9 +12,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
 
 interface AuthUser {
   id: string
-  username: string
-  displayName: string
-  avatar?: string
+  email: string
+  name: string
+  avatar?: string | null
+  onboarding_completed_at: string | null
+  is_admin: boolean
 }
 
 interface Props {
@@ -120,7 +122,7 @@ export default function ProfileScreen({ user, navigate }: Props) {
     window.location.reload()
   }
 
-  const displayName = user?.displayName ?? 'Dan'
+  const displayName = user?.name ?? 'Dan'
 
   return (
     <div dir="rtl" className="mn-profile-screen">
@@ -239,6 +241,23 @@ export default function ProfileScreen({ user, navigate }: Props) {
             last
           />
         </div>
+
+        {/* Admin */}
+        {user?.is_admin && (
+          <button
+            onClick={() => navigate('admin')}
+            style={{
+              marginTop: 8, background: 'none',
+              border: '1px solid rgba(44,44,42,0.2)',
+              borderRadius: 12, padding: '12px 16px',
+              width: '100%', fontSize: 14,
+              color: T.charcoalLight, cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            ⚙️ ניהול הזמנות
+          </button>
+        )}
 
         {/* Account */}
         <p className="mn-profile-eyebrow">חשבון</p>

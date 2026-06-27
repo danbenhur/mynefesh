@@ -13,7 +13,7 @@ import {
 } from '../lib/timeseries.js'
 import type { Granularity } from '../lib/timeseries.js'
 import { getDb } from '../db/index.js'
-import { questionAnswers, umbrellaQuestions } from '../db/schema.js'
+import { questionAnswers, umbrellaQuestions, umbrellas } from '../db/schema.js'
 
 const router = Router()
 
@@ -21,7 +21,7 @@ const router = Router()
 router.get('/umbrellas/health', async (req, res) => {
   try {
     const days = Math.min(parseInt(String(req.query.days ?? '14'), 10) || 14, 365)
-    const scores = await getAllUmbrellaHealthScores(days)
+    const scores = await getAllUmbrellaHealthScores(days, req.user!.id)
     res.json(scores)
   } catch (err) {
     console.error('GET /api/analytics/umbrellas/health:', err)
@@ -32,8 +32,14 @@ router.get('/umbrellas/health', async (req, res) => {
 // GET /api/analytics/umbrellas/:id/trend?days=42
 router.get('/umbrellas/:id/trend', async (req, res) => {
   try {
+    const db = getDb()
+    const umbrellaId = req.params.id
+    // Verify umbrella belongs to this user before querying
+    const [owned] = await db.select({ id: umbrellas.id }).from(umbrellas)
+      .where(and(eq(umbrellas.id, umbrellaId), eq(umbrellas.userId, req.user!.id))).limit(1)
+    if (!owned) { res.status(404).json({ error: 'Not found' }); return }
     const days = Math.min(parseInt(String(req.query.days ?? '42'), 10) || 42, 365)
-    const trend = await getUmbrellaDailyTrend(req.params.id, days)
+    const trend = await getUmbrellaDailyTrend(umbrellaId, days, req.user!.id)
     res.json(trend)
   } catch (err) {
     console.error('GET /api/analytics/umbrellas/:id/trend:', err)
@@ -44,8 +50,18 @@ router.get('/umbrellas/:id/trend', async (req, res) => {
 // GET /api/analytics/questions/:id/trend?days=90
 router.get('/questions/:id/trend', async (req, res) => {
   try {
+    const db = getDb()
+    const questionId = req.params.id
+    // Verify question belongs to an umbrella owned by this user
+    const [owned] = await db
+      .select({ id: umbrellaQuestions.id })
+      .from(umbrellaQuestions)
+      .innerJoin(umbrellas, eq(umbrellaQuestions.umbrellaId, umbrellas.id))
+      .where(and(eq(umbrellaQuestions.id, questionId), eq(umbrellas.userId, req.user!.id)))
+      .limit(1)
+    if (!owned) { res.status(404).json({ error: 'Not found' }); return }
     const days = Math.min(parseInt(String(req.query.days ?? '90'), 10) || 90, 365)
-    const trend = await getQuestionDailyTrend(req.params.id, days)
+    const trend = await getQuestionDailyTrend(questionId, days, req.user!.id)
     res.json(trend)
   } catch (err) {
     console.error('GET /api/analytics/questions/:id/trend:', err)

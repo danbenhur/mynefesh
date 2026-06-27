@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { desc, ne, asc, sql } from 'drizzle-orm'
+import { and, desc, eq, ne, asc, sql } from 'drizzle-orm'
 import Anthropic from '@anthropic-ai/sdk'
 import { getDb } from '../db/index.js'
 import { chatMessages, umbrellas, tasks, reminders, apiUsage } from '../db/schema.js'
@@ -69,15 +69,15 @@ function esc(s: string, attr = false): string {
   return r
 }
 
-async function buildContextBlock(): Promise<string> {
+async function buildContextBlock(userId: string): Promise<string> {
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
 
   const [allUmbrellas, openTasks, allReminders, computedScores] = await Promise.all([
-    db.select().from(umbrellas).orderBy(asc(umbrellas.position)),
-    db.select().from(tasks).where(ne(tasks.status, 'done')),
-    db.select().from(reminders),
-    getAllUmbrellaHealthScores(14),
+    db.select().from(umbrellas).where(eq(umbrellas.userId, userId)).orderBy(asc(umbrellas.position)),
+    db.select().from(tasks).where(and(ne(tasks.status, 'done'), eq(tasks.userId, userId))),
+    db.select().from(reminders).where(eq(reminders.userId, userId)),
+    getAllUmbrellaHealthScores(14, userId),
   ])
 
   const umbrellaLines: string[] = []
@@ -123,8 +123,10 @@ router.get('/history', async (req, res) => {
   const limit = Math.max(1, Math.min(200, parseInt(req.query.limit as string) || 50))
   try {
     const db = getDb()
+    const userId = req.user!.id
     const rows = await db.select()
       .from(chatMessages)
+      .where(eq(chatMessages.userId, userId))
       .orderBy(desc(chatMessages.createdAt))
       .limit(limit)
     res.json(rows.reverse().map(m => ({
@@ -153,7 +155,8 @@ router.post('/history', async (req, res) => {
   }
   try {
     const db = getDb()
-    const [row] = await db.insert(chatMessages).values(parse.data).returning()
+    const userId = req.user!.id
+    const [row] = await db.insert(chatMessages).values({ ...parse.data, userId }).returning()
     res.status(201).json({
       id: row.id,
       role: row.role,
@@ -184,7 +187,7 @@ router.post('/', async (req, res) => {
   }
 
   // Cap 1: per-user sliding-window rate limit (in-memory)
-  const userId = req.user?.id ?? 'anonymous'
+  const userId = req.user!.id
   const rateCheck = checkRateLimit(userId)
   if (!rateCheck.allowed) {
     res.status(429).json({
@@ -209,7 +212,7 @@ router.post('/', async (req, res) => {
 
   try {
     const [contextBlock, historyRows] = await Promise.all([
-      buildContextBlock().catch(err => {
+      buildContextBlock(userId).catch(err => {
         console.error('Context build failed (non-fatal):', err)
         return ''
       }),
@@ -218,6 +221,7 @@ router.post('/', async (req, res) => {
           const db = getDb()
           const rows = await db.select()
             .from(chatMessages)
+            .where(eq(chatMessages.userId, userId))
             .orderBy(desc(chatMessages.createdAt))
             .limit(20)
           return rows.reverse()
@@ -272,8 +276,8 @@ router.post('/', async (req, res) => {
       try {
         const db = getDb()
         await db.insert(chatMessages).values([
-          { role: 'user', content: currentUserContent },
-          { role: 'assistant', content: fullResponse },
+          { role: 'user', content: currentUserContent, userId },
+          { role: 'assistant', content: fullResponse, userId },
         ])
         const costUsd = calculateClaudeCost(inputTokens, outputTokens).toFixed(4)
         const today = new Date().toISOString().split('T')[0]

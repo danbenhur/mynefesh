@@ -120,6 +120,20 @@
       "when": 1780834200000,
       "tag": "0016_recover_api_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782676800000,
+      "tag": "0017_multi_tenancy",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782763200000,
+      "tag": "0018_ensure_multi_tenancy",
+      "breakpoints": true
     }
   ]
 }

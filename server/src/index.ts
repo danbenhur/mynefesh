@@ -1,111 +1,49 @@
-import express from 'express'
-import cors from 'cors'
-import session from 'express-session'
-import passport from 'passport'
+import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
-import { getDb, getPgPool } from './db/index.js'
-import pgSessionImport from 'connect-pg-simple'
-import './auth.js'
-import { requireAuth } from './auth.js'
-import authRouter from './routes/auth.js'
-import chatRouter from './routes/chat.js'
-import umbrellasRouter from './routes/umbrellas.js'
-import tasksRouter from './routes/tasks.js'
-import healthHistoryRouter from './routes/health-history.js'
-import webhookRouter from './routes/webhook.js'
-import settingsRouter from './routes/settings.js'
-import whatsappAdminRouter from './routes/whatsapp-admin.js'
-import { umbrellaQuestionsRouter, questionsRouter } from './routes/questions.js'
-import sandboxRouter from './routes/sandbox.js'
-import interviewRouter from './routes/interview.js'
-import analyticsRouter from './routes/analytics.js'
-import { umbrellaResolutionsRouter, resolutionsRouter } from './routes/resolutions.js'
+import { sql } from 'drizzle-orm'
+import { getDb } from './db/index.js'
 import { startScheduler } from './lib/scheduler.js'
-import { seedMigrationsIfNeeded } from './lib/migration-seeder.js'
+import app from './app.js'
 
-const app = express()
 const PORT = process.env.PORT ?? 3001
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173'
-const isDev = process.env.NODE_ENV === 'development'
 
-const PgStore = pgSessionImport(session)
-const pgPool = getPgPool()
-const sessionStore = pgPool
-  ? new PgStore({ pool: pgPool, tableName: 'user_sessions', createTableIfMissing: true })
-  : undefined  // falls back to MemoryStore when DATABASE_URL is absent
-
-if (!pgPool) {
-  console.warn('[session] DATABASE_URL not set — using MemoryStore (dev only)')
-}
-
-// Required for express-session to set Secure cookies behind Render/any reverse proxy.
-// Without this, req.secure is always false (proxy terminates TLS), so Set-Cookie is skipped.
-app.set('trust proxy', 1)
-
-app.use(cors({ origin: ALLOWED_ORIGIN, credentials: true }))
-app.use(express.json())
-
-app.use(
-  session({
-    store: sessionStore,
-    secret: process.env.SESSION_SECRET ?? 'dev-secret-change-me',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: !isDev,        // false only in local dev (NODE_ENV=development)
-      sameSite: isDev ? 'lax' : 'none',  // 'none' required for cross-site (Vercel→Render)
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    },
-  })
+console.log('[startup-diag] env vars:',
+  'TWILIO_ACCOUNT_SID=' + (!!process.env.TWILIO_ACCOUNT_SID),
+  'TWILIO_AUTH_TOKEN=' + (!!process.env.TWILIO_AUTH_TOKEN),
+  'TWILIO_SMS_FROM=' + (!!process.env.TWILIO_SMS_FROM),
+  'PUBLIC_URL=' + (process.env.PUBLIC_URL ?? 'MISSING'),
+  'DAILY_SMS_LIMIT=' + (process.env.DAILY_SMS_LIMIT ?? 'default'),
 )
 
-app.use(passport.initialize())
-app.use(passport.session())
-
-// Public endpoints — no auth required
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
-})
-app.use('/auth', authRouter)
-
-// Twilio webhook — public, form-encoded body, must be before requireAuth
-app.use('/webhook', express.urlencoded({ extended: false }), webhookRouter)
-
-// All /api/* routes beyond this point require a valid session
-app.use('/api', requireAuth)
-
-app.use('/api/umbrellas', umbrellasRouter)
-app.use('/api/tasks', tasksRouter)
-app.use('/api/health-history', healthHistoryRouter)
-app.use('/api/chat', chatRouter)
-app.use('/api/settings', settingsRouter)
-app.use('/api/whatsapp', whatsappAdminRouter)
-app.use('/api/umbrellas', umbrellaQuestionsRouter)
-app.use('/api/questions', questionsRouter)
-app.use('/api/sandbox', sandboxRouter)
-app.use('/api/interview', interviewRouter)
-app.use('/api/analytics', analyticsRouter)
-app.use('/api/umbrellas', umbrellaResolutionsRouter)
-app.use('/api/resolutions', resolutionsRouter)
+async function verifySchemaMatchesCode(): Promise<void> {
+  const db = getDb()
+  try {
+    await db.execute(sql`SELECT user_id FROM user_settings LIMIT 1`)
+    console.log('[startup-diag] schema probe: user_settings.user_id OK')
+  } catch (err) {
+    console.error('[startup-diag] SCHEMA MISMATCH — user_settings.user_id missing:', (err as Error).message)
+    console.error('[startup-diag] Migration 0017/0018 may not have applied. Service will degrade until corrected.')
+  }
+}
 
 // Run migrations before accepting traffic. Skipped if DATABASE_URL is absent (local dev without DB).
 if (process.env.DATABASE_URL) {
   const migrationsFolder = join(dirname(fileURLToPath(import.meta.url)), '..', 'drizzle')
   try {
-    await seedMigrationsIfNeeded(migrationsFolder)
+    console.log('[startup-diag] running migrate()')
     await migrate(getDb(), { migrationsFolder })
-    console.log('Migrations applied')
+    console.log('[startup-diag] migrations completed successfully')
   } catch (err) {
-    console.error('Migration failed — exiting:', err)
+    console.error('[startup-diag] Migration failed — exiting:', err)
     process.exit(1)
   }
 
+  await verifySchemaMatchesCode()
   startScheduler()
+  console.log('[startup-diag] scheduler started')
 }
 
 app.listen(PORT, () => {
-  console.log(`MyNefesh server running on http://localhost:${PORT}`)
+  console.log(`[startup-diag] MyNefesh server listening on port ${PORT}`)
 })

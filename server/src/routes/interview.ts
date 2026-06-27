@@ -35,7 +35,7 @@ function yesterdayStr(dateStr: string): string {
 // Grace window: if Jerusalem time is before 06:00 and the most recent open
 // whatsapp_session is from yesterday, bind the interview to that session's date.
 // This ensures a check-in answered at e.g. 00:30 is recorded for the previous day.
-async function getEffectiveInterviewDate(): Promise<string> {
+async function getEffectiveInterviewDate(userId: string): Promise<string> {
   const now = new Date()
   const today = jerusalemDate(now)
 
@@ -45,6 +45,7 @@ async function getEffectiveInterviewDate(): Promise<string> {
       .select({ date: whatsappSession.date })
       .from(whatsappSession)
       .where(and(
+        eq(whatsappSession.userId, userId),
         ne(whatsappSession.state, 'completed'),
         ne(whatsappSession.state, 'final_sent'),
       ))
@@ -60,23 +61,23 @@ async function getEffectiveInterviewDate(): Promise<string> {
 }
 
 // GET /api/interview/today
-router.get('/today', async (_req, res) => {
+router.get('/today', async (req, res) => {
   try {
     const db = getDb()
-    const today = await getEffectiveInterviewDate()
-    const questions = await composeTodaysQuestions(new Date(`${today}T12:00:00Z`))
+    const today = await getEffectiveInterviewDate(req.user!.id)
+    const questions = await composeTodaysQuestions(new Date(`${today}T12:00:00Z`), req.user!.id)
 
-    // Get or create today's session
+    // Get or create today's session (scoped to this user)
     let rows = await db
       .select()
       .from(interviewSession)
-      .where(eq(interviewSession.date, today))
+      .where(and(eq(interviewSession.date, today), eq(interviewSession.userId, req.user!.id)))
 
     let session = rows[0]
     if (!session) {
       const inserted = await db
         .insert(interviewSession)
-        .values({ date: today, startedAt: new Date() })
+        .values({ date: today, startedAt: new Date(), userId: req.user!.id })
         .returning()
       session = inserted[0]
     } else if (!session.startedAt) {
@@ -126,14 +127,15 @@ router.post('/answer', async (req, res) => {
 
   try {
     const db = getDb()
-    const today = await getEffectiveInterviewDate()
+    const today = await getEffectiveInterviewDate(req.user!.id)
     const { questionId, answerText, answerScale, answerBoolean, answerOptions, comment } = parse.data
 
     // Load question to compute normalized value and validate multi_select options
+    // Also verifies the question belongs to this user
     const [q] = await db
       .select()
       .from(umbrellaQuestions)
-      .where(eq(umbrellaQuestions.id, questionId))
+      .where(and(eq(umbrellaQuestions.id, questionId), eq(umbrellaQuestions.userId, req.user!.id)))
 
     if (!q) {
       res.status(404).json({ error: 'Question not found' })
@@ -177,7 +179,11 @@ router.post('/answer', async (req, res) => {
     const existing = await db
       .select()
       .from(questionAnswers)
-      .where(and(eq(questionAnswers.questionId, questionId), eq(questionAnswers.interviewDate, today)))
+      .where(and(
+        eq(questionAnswers.questionId, questionId),
+        eq(questionAnswers.interviewDate, today),
+        eq(questionAnswers.userId, req.user!.id),
+      ))
 
     let answer
     if (existing[0]) {
@@ -190,16 +196,16 @@ router.post('/answer', async (req, res) => {
     } else {
       const inserted = await db
         .insert(questionAnswers)
-        .values({ questionId, interviewDate: today, answerText, answerScale, answerBoolean, answerOptions, answerNormalized, comment: comment ?? null })
+        .values({ questionId, interviewDate: today, answerText, answerScale, answerBoolean, answerOptions, answerNormalized, comment: comment ?? null, userId: req.user!.id })
         .returning()
       answer = inserted[0]
     }
 
-    // Advance session index
+    // Advance session index (scoped to this user)
     const sessionRows = await db
       .select()
       .from(interviewSession)
-      .where(eq(interviewSession.date, today))
+      .where(and(eq(interviewSession.date, today), eq(interviewSession.userId, req.user!.id)))
 
     if (sessionRows[0]) {
       await db
@@ -221,15 +227,15 @@ router.post('/answer', async (req, res) => {
 })
 
 // POST /api/interview/complete
-router.post('/complete', async (_req, res) => {
+router.post('/complete', async (req, res) => {
   try {
     const db = getDb()
-    const today = await getEffectiveInterviewDate()
+    const today = await getEffectiveInterviewDate(req.user!.id)
 
     const rows = await db
       .select()
       .from(interviewSession)
-      .where(eq(interviewSession.date, today))
+      .where(and(eq(interviewSession.date, today), eq(interviewSession.userId, req.user!.id)))
 
     if (!rows[0]) {
       res.status(404).json({ error: 'No session for today' })
@@ -239,19 +245,19 @@ router.post('/complete', async (_req, res) => {
     const [updated] = await db
       .update(interviewSession)
       .set({ completedAt: new Date() })
-      .where(eq(interviewSession.id, rows[0].id))
+      .where(and(eq(interviewSession.id, rows[0].id), eq(interviewSession.userId, req.user!.id)))
       .returning()
 
     // Keep whatsapp_session in sync so morning-skip logic has a consistent view
     const wsRows = await db
       .select()
       .from(whatsappSession)
-      .where(eq(whatsappSession.date, today))
+      .where(and(eq(whatsappSession.date, today), eq(whatsappSession.userId, req.user!.id)))
     if (wsRows[0] && (wsRows[0].state === 'pending' || wsRows[0].state === 'snoozed')) {
       await db
         .update(whatsappSession)
         .set({ state: 'completed' })
-        .where(eq(whatsappSession.id, wsRows[0].id))
+        .where(and(eq(whatsappSession.id, wsRows[0].id), eq(whatsappSession.userId, req.user!.id)))
     }
 
     res.json({
@@ -277,13 +283,13 @@ router.get('/history', async (req, res) => {
     const sessions = await db
       .select()
       .from(interviewSession)
-      .where(gte(interviewSession.date, sinceStr))
+      .where(and(gte(interviewSession.date, sinceStr), eq(interviewSession.userId, req.user!.id)))
       .orderBy(desc(interviewSession.date))
 
     const answers = await db
       .select()
       .from(questionAnswers)
-      .where(gte(questionAnswers.interviewDate, sinceStr))
+      .where(and(gte(questionAnswers.interviewDate, sinceStr), eq(questionAnswers.userId, req.user!.id)))
       .orderBy(desc(questionAnswers.interviewDate))
 
     res.json({

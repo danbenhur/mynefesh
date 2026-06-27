@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { tasks } from '../db/schema.js'
 
@@ -25,9 +25,10 @@ router.get('/', async (req, res) => {
   const umbrellaId = req.query.umbrella as string | undefined
   try {
     const db = getDb()
+    const userId = req.user!.id
     const rows = umbrellaId
-      ? await db.select().from(tasks).where(eq(tasks.umbrellaId, umbrellaId))
-      : await db.select().from(tasks)
+      ? await db.select().from(tasks).where(and(eq(tasks.userId, userId), eq(tasks.umbrellaId, umbrellaId)))
+      : await db.select().from(tasks).where(eq(tasks.userId, userId))
     res.json(rows.map(taskShape))
   } catch (err) {
     console.error('GET /tasks:', err)
@@ -56,6 +57,7 @@ router.post('/', async (req, res) => {
     const db = getDb()
     const [row] = await db.insert(tasks).values({
       ...rest,
+      userId: req.user!.id,
       dueAt: dueDate ? new Date(dueDate) : null,
     }).returning()
     res.status(201).json(taskShape(row))
@@ -90,9 +92,15 @@ router.patch('/:id', async (req, res) => {
   }
   try {
     const db = getDb()
+    const [owned] = await db.select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.id, req.params.id), eq(tasks.userId, req.user!.id)))
+      .limit(1)
+    if (!owned) { res.status(404).json({ error: 'Task not found' }); return }
+
     const [row] = await db.update(tasks)
       .set(setValues)
-      .where(eq(tasks.id, req.params.id))
+      .where(and(eq(tasks.id, req.params.id), eq(tasks.userId, req.user!.id)))
       .returning()
     if (!row) { res.status(404).json({ error: 'Task not found' }); return }
     res.json(taskShape(row))
@@ -106,8 +114,14 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const db = getDb()
+    const [owned] = await db.select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.id, req.params.id), eq(tasks.userId, req.user!.id)))
+      .limit(1)
+    if (!owned) { res.status(404).json({ error: 'Task not found' }); return }
+
     const [row] = await db.delete(tasks)
-      .where(eq(tasks.id, req.params.id))
+      .where(and(eq(tasks.id, req.params.id), eq(tasks.userId, req.user!.id)))
       .returning()
     if (!row) { res.status(404).json({ error: 'Task not found' }); return }
     res.status(204).end()

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { umbrellas, tasks, reminders, healthHistory } from '../db/schema.js'
 import { getAllUmbrellaHealthScores } from '../lib/analytics.js'
@@ -74,14 +74,15 @@ router.get('/', async (req, res) => {
     const db = getDb()
     const includeArchived = req.query.include === 'archived'
 
+    const userId = req.user!.id
     const [allUmbrellas, allTasks, allReminders, allHistory, healthScores] = await Promise.all([
       includeArchived
-        ? db.select().from(umbrellas)
-        : db.select().from(umbrellas).where(isNull(umbrellas.archivedAt)),
-      db.select().from(tasks),
-      db.select().from(reminders),
-      db.select().from(healthHistory),
-      getAllUmbrellaHealthScores(14),
+        ? db.select().from(umbrellas).where(eq(umbrellas.userId, userId))
+        : db.select().from(umbrellas).where(and(isNull(umbrellas.archivedAt), eq(umbrellas.userId, userId))),
+      db.select().from(tasks).where(eq(tasks.userId, userId)),
+      db.select().from(reminders).where(eq(reminders.userId, userId)),
+      db.select().from(healthHistory).where(eq(healthHistory.userId, userId)),
+      getAllUmbrellaHealthScores(14, userId),
     ])
     const result = allUmbrellas
       .sort((a, b) => a.position - b.position)
@@ -117,7 +118,7 @@ router.post('/', async (req, res) => {
   }
   try {
     const db = getDb()
-    const [row] = await db.insert(umbrellas).values(parse.data).returning()
+    const [row] = await db.insert(umbrellas).values({ ...parse.data, userId: req.user!.id }).returning()
     res.status(201).json(umbrellaShape(row, [], [], [], null))
   } catch (err) {
     console.error('POST /umbrellas:', err)
@@ -148,10 +149,18 @@ router.patch('/:id', async (req, res) => {
   }
   try {
     const db = getDb()
+    const umbrellaId = req.params.id
+
+    // Ownership check
+    const [owned] = await db.select({ id: umbrellas.id })
+      .from(umbrellas)
+      .where(and(eq(umbrellas.id, umbrellaId), eq(umbrellas.userId, req.user!.id)))
+      .limit(1)
+    if (!owned) { res.status(404).json({ error: 'Umbrella not found' }); return }
 
     if (parse.data.parentId) {
       const newParentId = parse.data.parentId
-      const umbrellaId = req.params.id
+      // umbrellaId already declared above
 
       const allRows = await db.select({ id: umbrellas.id, parentId: umbrellas.parentId }).from(umbrellas)
       const parentMap = new Map<string, string | null>()
@@ -188,7 +197,7 @@ router.patch('/:id', async (req, res) => {
 
     const [row] = await db.update(umbrellas)
       .set(updates)
-      .where(eq(umbrellas.id, req.params.id))
+      .where(and(eq(umbrellas.id, umbrellaId), eq(umbrellas.userId, req.user!.id)))
       .returning()
     if (!row) { res.status(404).json({ error: 'Umbrella not found' }); return }
     res.json(umbrellaShape(row, [], [], []))
@@ -202,8 +211,15 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const db = getDb()
+    // Ownership check: returns 404 whether the row doesn't exist or belongs to another user
+    const [owned] = await db.select({ id: umbrellas.id })
+      .from(umbrellas)
+      .where(and(eq(umbrellas.id, req.params.id), eq(umbrellas.userId, req.user!.id)))
+      .limit(1)
+    if (!owned) { res.status(404).json({ error: 'Umbrella not found' }); return }
+
     const [row] = await db.delete(umbrellas)
-      .where(eq(umbrellas.id, req.params.id))
+      .where(and(eq(umbrellas.id, req.params.id), eq(umbrellas.userId, req.user!.id)))
       .returning()
     if (!row) { res.status(404).json({ error: 'Umbrella not found' }); return }
     res.status(204).end()
