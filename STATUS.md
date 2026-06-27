@@ -6,13 +6,15 @@
 
 ## One-line state
 
-A personal life-management web app for Dan: nightly SMS check-in → in-app interview → data → visualizations. Live in production. Real users (him). Hardened security pass just shipped.
+A personal life-management web app for Dan: nightly SMS check-in → in-app interview → data → visualizations. Live in production. Multi-tenancy v2 just shipped — seeder killed, idempotent catch-all migration, clean master.
 
 ---
 
 ## Architecture in a paragraph
 
-React + Vite + TypeScript client on **Vercel** (`mynefesh.vercel.app` / `mynefesh-danbenhurs-projects.vercel.app`). Express + TypeScript + Drizzle ORM server on **Render** (`mynefesh.onrender.com`). Postgres on **Neon**. Auth via **Google OAuth** (gated to Dan's Gmail). Nightly **SMS** via paid **Twilio** number `+19129147770` (no more sandbox). All Hebrew + RTL. Repo at `github.com/danbenhur/mynefesh`, single branch `master`, no `main`.
+React + Vite + TypeScript client on **Vercel** (`mynefesh.vercel.app` / `mynefesh-danbenhurs-projects.vercel.app`). Express + TypeScript + Drizzle ORM server on **Render** (`mynefesh.onrender.com`). Postgres on **Neon**. Auth via **Google OAuth** (multi-tenant allowlist via `allowed_emails` table). Nightly **SMS** via paid **Twilio** number `+19129147770`. All Hebrew + RTL. Repo at `github.com/danbenhur/mynefesh`, single branch `master`, no `main`.
+
+Schema is now fully multi-tenant: `users` table, `allowed_emails` table, `user_id` FK on all 10 data tables. Dan seeded as `00000000-0000-0000-0000-000000000001`.
 
 For schema/routes/file layout see CLAUDE.md.
 
@@ -20,11 +22,13 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**Dashboard redesign — Phase 5 shipped.** All five main screens now speak the same design language: warm cream bg, white cards, sage accent, `.mn-*` CSS class library, `C.*` tokens from `dashboardTheme.ts`. The dashboard migration is complete. Next up: behavior improvements (chat tool use, real AI nudges, resolution heatmap).
+**Multi-tenancy v2 shipped (2026-06-28).** master is at `e812ec7` — clean single commit on top of `dbeaf8a`. Migration seeder deleted (root cause of two production incidents). Migrations 0017 + 0018 are both idempotent catch-alls. Render will auto-deploy; startup self-heal probe will log schema state. Verify login works after Render redeploys.
 
 ---
 
 ## Recently shipped (last ~2 weeks)
+
+- **Multi-tenancy v2 (2026-06-28, commit e812ec7):** Killed migration-seeder.ts (root cause of seeder footgun incidents). Added migrations 0017 (multi-tenancy DDL) and 0018 (catch-all re-run, no TRUNCATE). All routes scoped to req.user.id. New /api/admin and /api/onboarding routes. OnboardingScreen + AdminScreen added to client. New scheduler per-user Map cache. Vitest integration tests + GitHub Actions CI. Startup self-heal probe logs schema mismatch immediately. Single clean commit; force-pushed to clean master first.
 
 - **Spend protection (migration 0014):** Hard ceilings on all billable surfaces before opening app to invited users. Per-user sliding-window chat rate limit (5 msg/hr, in-memory). Daily Anthropic API budget cap (`DAILY_API_BUDGET_USD`, default $5). Daily SMS cap (`DAILY_SMS_LIMIT`, default 50). New `api_usage` table logs both surfaces with `day_utc` index. `pricing.ts` codifies claude-sonnet-4-6 rates. Both caps return Hebrew 429 errors. Limits are env-var tunable without code changes.
 
@@ -46,17 +50,18 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
+- **Render redeploy verification:** after push, confirm login works end-to-end. Schema self-heal probe in startup logs will tell you if migration 0017/0018 applied correctly.
+- **Inert ProfileScreen controls:** personality/language chips + morning-brief/AI-nudges toggles still not wired (pending per-user settings work now that user_id exists in schema).
 - **Minor debt:** stray `TODO/FIXME` comments to sweep. Optional.
-- **Inert ProfileScreen controls:** personality/language chips + morning-brief/AI-nudges toggles are commented out pending multi-tenancy + per-user settings work.
 
 ---
 
 ## Open decisions / things to think about
 
+- **First invited user.** Schema now supports multiple users. The flow (admin sends invite → invitee lands → onboarding) is built. Who's the first non-Dan user? Test the flow before inviting.
 - **AI chat depth.** Nefesh currently has read-only context. The original master plan included Phase 2 — letting Nefesh actually *edit* data via tool use ("create a task", "add a question", "update a score"). Worth scoping that next.
 - **Streaks / habits visualization.** Resolutions have progress bars and streak counts, but no chart yet. Heatmap or per-day grid would make it feel alive.
-- **Notification model.** Right now: one SMS per night. No morning brief, no proactive nudges (those UI toggles exist but aren't wired). Worth deciding which to implement next.
-- **Multi-user, ever?** Currently single-user, hardcoded allowlist by Gmail. App is structurally single-user. If anyone else might use it, that's a non-trivial rebuild — better to decide now than later.
+- **Notification model.** Right now: one SMS per night per user. Per-user phone numbers + settings are in schema. Worth wiring per-user scheduler correctly for multiple users.
 - **Mobile polish.** Layout is functional but not pixel-tuned for small phones (the prototype was designed at 390×844; the live app uses those exact values inline). A responsive pass would help.
 
 ---
@@ -75,7 +80,7 @@ For schema/routes/file layout see CLAUDE.md.
 - **Token pricing must be maintained manually** — `server/src/lib/pricing.ts` hardcodes claude-sonnet-4-6 rates. If the model or pricing changes, update that file.
 - **Render free tier sleeps after 15 min idle** — cron-job.org ping every 10 min keeps it warm so the scheduler actually fires.
 - **Twilio SMS** — paid (~$3/mo). Real number, no more sandbox. Webhook signature-verified.
-- **Single user** — schema has no userId column; auth is allowlist-by-email. Adding users later = real refactor.
+- **Multi-tenant** — schema has userId on all tables. Auth via `allowed_emails` table (admin-managed). Dan is always `00000000-0000-0000-0000-000000000001`.
 - **Hebrew + RTL** — all UI strings are Hebrew, layout direction RTL. English fallback would need an i18n library if ever needed.
 - **The dispatch ↔ desktop bridge** intermittently hangs shell commands, breaking automated commit/push from code tasks. Manual git via PowerShell always works as a fallback.
 

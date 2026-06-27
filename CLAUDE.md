@@ -55,9 +55,9 @@ The app is fully deployed and functional. Below is what is actually built.
 | Backend | Express 5 + TypeScript |
 | ORM | Drizzle ORM + drizzle-kit (auto-migrations on startup) |
 | Database | Neon PostgreSQL (serverless) |
-| Auth | Passport.js + Google OAuth 2.0 (single allowed email) |
+| Auth | Passport.js + Google OAuth 2.0 (multi-tenant via `allowed_emails` table) |
 | AI | Anthropic SDK (`claude-sonnet-4-6` via SSE streaming) |
-| WhatsApp | Twilio sandbox (WhatsApp) |
+| WhatsApp | Twilio paid number (SMS, no more sandbox) |
 | Scheduler | node-cron (runs every minute on server) |
 | Sunset calc | SunCalc (Jerusalem Shabbat window) |
 | Session store | connect-pg-simple (sessions in Postgres) |
@@ -70,49 +70,70 @@ No React Native, no Electron, no mobile app — this is a **mobile-first PWA** (
 
 ## Architecture
 
-### Principle: Single user, no tenancy
+### Principle: Multi-tenant, allowlist-gated
 
-There are no `userId` columns in the schema. The app assumes one authenticated user (Dan). Auth is Google OAuth with a hardcoded email allowlist (`ALLOWED_GOOGLE_EMAIL`).
+All data tables have `user_id` FK to `users`. Auth is Google OAuth validated against the `allowed_emails` table (managed by Dan via `/api/admin`). Dan's UUID is `00000000-0000-0000-0000-000000000001` (seeded in migration 0017). New users complete onboarding at `/api/onboarding/complete` before accessing the app.
+
+**`ALLOWED_GOOGLE_EMAIL` env var is now OBSOLETE** — allowlist is DB-driven. Remove it from Render after confirming login works post-deploy.
 
 ### Data Model (actual schema)
 
 ```
+users                          ← NEW (migration 0017)
+  id (uuid pk), google_id (text unique), email (text unique not null),
+  name, picture, onboarding_completed_at, is_sandbox_user (bool),
+  created_at
+  — Dan seeded as '00000000-0000-0000-0000-000000000001'
+
+allowed_emails                 ← NEW (migration 0017)
+  id (uuid pk), email (unique not null), invited_by → users (set null),
+  notes, invited_at, revoked_at
+
 umbrellas
-  id (uuid), name, icon, parent_id → umbrellas (self-ref, cascade),
+  id (uuid), user_id → users (cascade),          ← ADDED (migration 0017)
+  name, icon, parent_id → umbrellas (self-ref, cascade),
   health_score (int, legacy — now computed from answers),
   notes (text[]), position, archived_at, created_at, updated_at
 
 tasks
-  id, umbrella_id → umbrellas (cascade), title,
+  id, user_id → users (cascade),                 ← ADDED
+  umbrella_id → umbrellas (cascade), title,
   status (todo|in-progress|done), priority (low|medium|high),
   due_at, position, created_at, updated_at
 
 reminders
-  id, umbrella_id → umbrellas (cascade), message, trigger_at,
+  id, user_id → users (cascade),                 ← ADDED
+  umbrella_id → umbrellas (cascade), message, trigger_at,
   is_recurring, created_at
 
 health_history
-  id, umbrella_id → umbrellas (cascade), score (int), recorded_at
+  id, user_id → users (cascade),                 ← ADDED
+  umbrella_id → umbrellas (cascade), score (int), recorded_at
 
 umbrella_questions
-  id, umbrella_id → umbrellas (cascade), text,
+  id, user_id → users (cascade),                 ← ADDED
+  umbrella_id → umbrellas (cascade), text,
   cadence (daily|weekly|monthly|annual),
   day_of_week (0-6), day_of_month (1-31), month_of_year (1-12),
   answer_type (text|scale|boolean|boolean_partial|multi_select),
   scale_min, scale_max, options (jsonb), position, enabled, created_at, updated_at
 
 question_answers
-  id, question_id → umbrella_questions (cascade),
+  id, user_id → users (cascade),                 ← ADDED
+  question_id → umbrella_questions (cascade),
   interview_date (date), answer_text, answer_scale (int),
   answer_boolean (yes|no|partial), answer_options (text[]),
   answer_normalized (0.0–1.0), comment (text), created_at
   — UPSERTED per (question_id, interview_date)
 
 interview_session
-  id, date (date, unique), started_at, completed_at, current_index
+  id, user_id → users (cascade),                 ← ADDED
+  date (date), started_at, completed_at, current_index
+  — UNIQUE (user_id, date)
 
 resolutions
-  id (uuid), umbrella_id → umbrellas (cascade),
+  id (uuid), user_id → users (cascade),          ← ADDED
+  umbrella_id → umbrellas (cascade),
   question_id → umbrella_questions (cascade),
   title (text), start_date (date), end_date (date),
   success_threshold (int, nullable — min scale value for success; null for boolean),
@@ -121,23 +142,27 @@ resolutions
   — auto-completed by scheduler at 00:01 when end_date < today
 
 chat_messages
-  id, role (user|assistant), content, created_at
+  id, user_id → users (cascade),                 ← ADDED
+  role (user|assistant), content, created_at
 
-user_settings          ← singleton row
-  id, checkin_time (HH:MM, default 21:00), phone_number,
+user_settings          ← one row PER USER (PK = user_id)
+  user_id → users (cascade) PRIMARY KEY,         ← WAS: id (serial pk)
+  checkin_time (HH:MM, default 21:00), phone_number,
   timezone (default Asia/Jerusalem), shabbat_mode (bool),
   saturday_checkin_time, last_sandbox_join_at, sandbox_status,
   last_delivery_failure_at, last_60h_reminder_at, created_at, updated_at
 
-whatsapp_session       ← one row per calendar date
-  id, date (date, unique),
+whatsapp_session       ← one row per (user, calendar date)
+  id, user_id → users (cascade),                 ← ADDED
+  date (date),
   state (pending|snoozed|completed|final_sent),
   snooze_count, last_message_at, next_send_at
+  — UNIQUE (user_id, date)
 
 user_sessions          ← managed by connect-pg-simple
 
 api_usage              ← spend-protection log (migration 0014)
-  id (uuid), kind ('anthropic'|'sms'), user_id (text, nullable),
+  id (uuid), kind ('anthropic'|'sms'), user_id → users (set null, uuid),
   occurred_at (timestamptz), day_utc (date),
   input_tokens (int, nullable), output_tokens (int, nullable),
   cost_usd (numeric(10,4), nullable)
@@ -147,7 +172,9 @@ api_usage              ← spend-protection log (migration 0014)
 - Health score is **computed**, not stored: `AVG(answer_normalized) * 100` over last 14 days from `question_answers`.
 - `health_history` and `umbrellas.health_score` are legacy fields — analytics route computes the real score.
 - Deleting an umbrella cascades to all children, tasks, reminders, questions, and answers.
+- Deleting a user cascades to ALL their data (umbrellas, tasks, questions, answers, settings, sessions).
 - Interview answers are upserted: re-answering the same question on the same day overwrites, not appends.
+- Dan's UUID `00000000-0000-0000-0000-000000000001` is stable and hardcoded in migration 0017.
 
 ---
 
@@ -155,9 +182,17 @@ api_usage              ← spend-protection log (migration 0014)
 
 ### Auth (`/auth`)
 - `GET /google` — Redirect to Google OAuth
-- `GET /google/callback` — Validate email, save session, redirect to frontend
-- `GET /me` — Returns `{ authenticated: true, user: {...} }` or `{ authenticated: false }`
+- `GET /google/callback` — Validate email against `allowed_emails` table, upsert `users` row, save session, redirect to frontend
+- `GET /me` — Returns `{ authenticated: true, user: { id, email, name, picture, onboardingCompletedAt } }` or `{ authenticated: false }`
 - `POST /logout` — Destroy session
+
+### Onboarding (`/api/onboarding`)
+- `POST /complete` — Mark onboarding done for current user (`onboarding_completed_at = now()`); creates default `user_settings` row
+
+### Admin (`/api/admin`) — Dan-only (gated by `is_sandbox_user` or future role check)
+- `GET /invites` — List all rows in `allowed_emails`
+- `POST /invites` — Add email to allowlist (body: `{ email, notes }`)
+- `DELETE /invites/:email` — Revoke access (sets `revoked_at`)
 
 ### Umbrellas (`/api/umbrellas`)
 - `GET /` — Flat list of non-archived umbrellas; `?include=archived` includes archived ones
@@ -353,7 +388,7 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 
 ## What's Built and Live
 
-- **Google OAuth auth** — Login, session, single-user email validation
+- **Multi-tenant auth** — Google OAuth validated against `allowed_emails` table. `users` table with UUID PK. Onboarding gate (new users → `/onboarding`). Admin invite screen for Dan to add users. Dan's UUID hardcoded as `00000000-0000-0000-0000-000000000001`.
 - **Umbrella CRUD** — Create, rename, archive, delete (cascade), restore archived
 - **Child umbrellas** — Full hierarchy support; sub-areas shown in UmbrellaDetail
 - **Interview system** — Cadence-based questions, all answer types, session tracking, Jerusalem-aware date
@@ -419,7 +454,7 @@ This project has a history of migration disasters from hand-written files and jo
 
 ### Why idempotency matters
 
-The migration runner tracks applied migrations by file hash in `__drizzle_migrations`. If that table ever gets out of sync (empty on an existing DB, restored from backup, etc.), `seedMigrationsIfNeeded()` in `lib/migration-seeder.ts` re-seeds the baseline. If migrations 0–8 are re-run and they're not idempotent, they crash (`duplicate table`, `duplicate column`). All migrations must be safe to re-run.
+The migration runner tracks applied migrations by file hash in `__drizzle_migrations`. **The legacy migration-seeder.ts has been permanently deleted** — it caused two production incidents by marking entries as applied without running DDL. Drizzle's `migrate()` owns the tracking table entirely. If the tracking table is missing or empty, `migrate()` will try to run ALL migrations from 0000 — which is exactly why every migration must be idempotent (`IF NOT EXISTS`, `DO $$ BEGIN ... EXCEPTION ... END $$`). Do not add non-idempotent DDL to any migration.
 
 ### The build-time sync check
 
@@ -453,7 +488,7 @@ A desync will now fail the Render build before it can reach the server.
 
 6. **Render cold starts.** Render's free tier spins down after inactivity. First request after sleep takes ~30s. Scheduler won't fire during sleep.
 
-7. **No `userId` in schema.** The entire database is single-user. Do not add multi-tenancy without a full schema migration plan.
+7. **Schema is now multi-tenant.** All tables have `user_id` FK to `users`. Never query without a userId filter — cross-user data leakage is the failure mode. Every route scopes all queries to `req.user.id`.
 
 8. **`health_score` column on `umbrellas` table is legacy.** The UI uses `computedHealthScore` from the analytics route, not `umbrella.health_score`. Don't write to `health_score` for anything new.
 
