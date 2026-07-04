@@ -61,7 +61,7 @@ DO $$ BEGIN
 END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_umbrellas_user_name') THEN
-    ALTER TABLE umbrellas ADD CONSTRAINT uq_umbrellas_user_name UNIQUE (user_id, name);
+    ALTER TABLE umbrellas ADD CONSTRAINT uq_umbrellas_user_name UNIQUE (user_id, parent_id, name);
   END IF;
 END $$;
 
