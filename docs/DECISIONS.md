@@ -21,6 +21,8 @@
 ## 2026-07-10 (later)
 - **D13. Payment provider (Q3 decided): Grow (by Meshulam)** — Dan approved ("take grow"). Reasons: fastest self-signup, hosted secure checkout (minimal compliance), native Bit support, fees in line with the 3% model assumption. Prerequisite: Dan registers עוסק. B3 will be built against Grow's hosted-page API behind a payments adapter (switchable later).
 
+- **D14. Domain purchased**: Dan bought **simkal.co.il** (2026-07-10, registrar: Box.co.il, confirmation received). Brand + domain now fully secured; unblocks hosting hookup and Meta/WhatsApp business verification.
+
 ## PROVISIONAL — Dan to confirm (made autonomously during Shabbat run, 2026-07-10)
 - **PD1. Mock payment**: until Q3 is decided, checkout "charges" nothing — orders are created as already-paid so the full flow can be tested. Real payment provider replaces this in B3.
 - **PD2. Commission rate**: flat **15%** accrues on every agent-attributed order until Q4 is decided. Each ledger row stores its own rate, so switching to tiered later never rewrites history.

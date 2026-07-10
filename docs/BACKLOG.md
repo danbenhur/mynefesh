@@ -2,7 +2,7 @@
 
 ## Decision Queue (Dan)
 1. ⛔ **Q1 — Wholesale provider** (BLOCKER for catalog/margins): sign up at Yesim Partner, eSIM Access, Airalo Partners → paste price sheets for Europe/US/Thailand into a session.
-2. ✅ **Q2 — DECIDED 2026-07-10: SimKal / סימקל** (see DECISIONS D12). Remaining Dan action: **buy simkal.co.il** (+ .co/.io optionally).
+2. ✅ **Q2 — DECIDED 2026-07-10: SimKal / סימקל** (see DECISIONS D12). ✅ Domain **simkal.co.il purchased** same day (Box.co.il — D14).
 3. ✅ **Q3 — DECIDED 2026-07-10: Grow (by Meshulam)** (see DECISIONS D13, comparison in `docs/PAYMENTS.md`). Remaining Dan actions: register עוסק → sign up at Grow → hand API keys to a session (B3 then goes live).
 4. **Q4 — Commission model**: flat 15% vs tiered 10/20.
 
