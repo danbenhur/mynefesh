@@ -1,17 +1,10 @@
+import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { plans, type Plan } from "@/db/schema";
+import { formatData, formatPrice } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
-
-function formatData(mb: number | null): string {
-  if (mb === null) return "ללא הגבלה";
-  return mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`;
-}
-
-function formatPrice(ils: string): string {
-  return `₪${Number(ils).toFixed(2).replace(/\.00$/, "")}`;
-}
 
 export default async function HomePage() {
   const db = await getDb();
@@ -51,7 +44,11 @@ export default async function HomePage() {
           <section className="destination" key={destination}>
             <h2>{destination}</h2>
             {group.map((plan) => (
-              <div className="plan-card" key={plan.id}>
+              <Link
+                className="plan-card"
+                key={plan.id}
+                href={`/plan/${plan.id}`}
+              >
                 <div className="details">
                   <div className="data">{formatData(plan.dataAmountMb)}</div>
                   <div className="validity">
@@ -59,7 +56,7 @@ export default async function HomePage() {
                   </div>
                 </div>
                 <div className="price">{formatPrice(plan.retailIls)}</div>
-              </div>
+              </Link>
             ))}
           </section>
         ))
