@@ -60,6 +60,10 @@ export default async function HomePage() {
           </section>
         ))
       )}
+
+      <footer className="site-footer">
+        <Link href="/agents/join">סוכן נסיעות? פתחו חנות משלכם ←</Link>
+      </footer>
     </main>
   );
 }
