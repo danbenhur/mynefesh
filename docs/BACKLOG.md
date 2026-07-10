@@ -8,8 +8,8 @@
 
 ## Build order (Claude Code)
 1. ✅ **B0 — Scaffold** *(done 2026-07-10)*: Next.js app, Postgres schema (tenants, plans, orders, commission ledger, markup rules, settings), zero-setup local dev DB (embedded Postgres), mock wholesale provider behind a provider-agnostic adapter, seed script, Hebrew-RTL catalog homepage with computed ₪ prices.
-2. **B1 — Storefront v1** *(next)*: catalog, plan page, Hebrew RTL, mobile-first. Mock checkout.
-3. **B2 — Multi-tenant skins**: wildcard subdomain routing, tenant theming, attribution.
+2. ✅ **B1 — Storefront v1** *(done 2026-07-10)*: plan pages, Hebrew RTL mobile-first funnel, mock checkout (validated form → paid order → provisioning with retries → on-screen QR + install steps). Verified end-to-end in a real browser.
+3. ✅ **B2 — Multi-tenant skins** *(done 2026-07-10)*: wildcard subdomain routing (+ `?tenant=` dev override), tenant lockup/photo/accent theming, order attribution + 15% commission ledger rows. Verified: attributed purchase credited the agent; www/unknown subdomains fall back to main store.
 4. **B3 — Payments**: real provider integration (post-Q3), ₪ pricing, webhooks.
 5. **B4 — Provisioning**: wholesale adapter (post-Q1), QR delivery email, retry/auto-refund path.
 6. **B5 — WhatsApp**: Meta Cloud API setup, delivery messages, tier-1 support bot + KB, escalation flow.

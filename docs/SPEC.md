@@ -1,6 +1,6 @@
 # SPEC v0
 
-Status: B0 scaffold implemented (schema + mock wholesale provider + seeded Hebrew catalog page). Blocked items marked ⛔ (see Decision Queue in BACKLOG.md).
+Status: B0–B2 implemented (schema, mock wholesale provider, full mock-checkout funnel with QR delivery, multi-tenant agent skins with attribution + commission ledger). Payments (B3) and real provisioning (B4) still mock/pending. Blocked items marked ⛔ (see Decision Queue in BACKLOG.md).
 
 ## 1. System overview
 - **Storefront**: Next.js, Hebrew-first (RTL) + English. Multi-tenant via wildcard subdomain (`{agent}.simkal.co.il`) + main site.
