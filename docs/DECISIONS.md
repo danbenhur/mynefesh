@@ -18,6 +18,9 @@
 ## 2026-07-10 (continued)
 - **D12. Brand name (Q2 decided): SimKal / סימקל** — Dan's pick from vetted shortlist. Composes as "Joe ⚡ powered by SimKal". No eSIM-brand collision found; simkal.com belongs to a Turkish calibration lab (unrelated industry, no conflict). Domains simkal.co.il / simkal.io / simkal.co showed no DNS records at decision time. **Dan action: buy simkal.co.il (+ .co/.io if cheap) ASAP — availability not guaranteed until purchased.** Also rejected en route: "Magic eSIM" (existing app), "MySim" (domains taken, generic).
 
+## 2026-07-10 (later)
+- **D13. Payment provider (Q3 decided): Grow (by Meshulam)** — Dan approved ("take grow"). Reasons: fastest self-signup, hosted secure checkout (minimal compliance), native Bit support, fees in line with the 3% model assumption. Prerequisite: Dan registers עוסק. B3 will be built against Grow's hosted-page API behind a payments adapter (switchable later).
+
 ## PROVISIONAL — Dan to confirm (made autonomously during Shabbat run, 2026-07-10)
 - **PD1. Mock payment**: until Q3 is decided, checkout "charges" nothing — orders are created as already-paid so the full flow can be tested. Real payment provider replaces this in B3.
 - **PD2. Commission rate**: flat **15%** accrues on every agent-attributed order until Q4 is decided. Each ledger row stores its own rate, so switching to tiered later never rewrites history.
