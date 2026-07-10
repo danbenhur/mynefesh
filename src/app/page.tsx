@@ -24,8 +24,7 @@ export default async function HomePage() {
   return (
     <main>
       <header className="site-header">
-        <h1>סימקל SimKal 🌍</h1>
-        <p>eSIM לחו״ל בקלות — סורקים QR ומתחברים.</p>
+        <p>eSIM לחו״ל בקלות 🌍 — סורקים QR ומתחברים.</p>
       </header>
 
       <div className="dev-banner">

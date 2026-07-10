@@ -65,18 +65,27 @@ async function main() {
   }
   console.log("✓ pricing config seeded");
 
-  // One demo agent tenant so multi-tenant work (B2) has data to run against.
-  await db
-    .insert(tenants)
-    .values({
+  // Demo agent tenants so multi-tenant skins (B2) have data to run against.
+  const demoTenants = [
+    {
       slug: "demo",
       displayName: "Demo eSIM",
       accentColor: "#F59E0B",
       commissionTier: "standard",
       status: "active",
-    })
-    .onConflictDoNothing();
-  console.log("✓ demo tenant seeded");
+    },
+    {
+      slug: "yossi",
+      displayName: "יוסי eSIM",
+      accentColor: "#10B981",
+      commissionTier: "standard",
+      status: "active",
+    },
+  ];
+  for (const t of demoTenants) {
+    await db.insert(tenants).values(t).onConflictDoNothing();
+  }
+  console.log("✓ demo tenants seeded");
 
   const provider = getWholesaleProvider();
   const { upserted, deactivated } = await syncCatalog(db, provider);
