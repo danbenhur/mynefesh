@@ -71,7 +71,7 @@ async function main() {
       slug: "demo",
       displayName: "Demo eSIM",
       accentColor: "#F59E0B",
-      commissionTier: "standard",
+      commissionTier: "founding", // permanent 20% (D15)
       status: "active",
     },
     {
@@ -83,7 +83,13 @@ async function main() {
     },
   ];
   for (const t of demoTenants) {
-    await db.insert(tenants).values(t).onConflictDoNothing();
+    await db
+      .insert(tenants)
+      .values(t)
+      .onConflictDoUpdate({
+        target: tenants.slug,
+        set: { commissionTier: t.commissionTier, status: t.status },
+      });
   }
   console.log("✓ demo tenants seeded");
 

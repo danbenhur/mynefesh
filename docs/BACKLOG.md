@@ -4,7 +4,7 @@
 1. ⛔ **Q1 — Wholesale provider** (BLOCKER for catalog/margins): sign up at Yesim Partner, eSIM Access, Airalo Partners → paste price sheets for Europe/US/Thailand into a session.
 2. ✅ **Q2 — DECIDED 2026-07-10: SimKal / סימקל** (see DECISIONS D12). ✅ Domain **simkal.co.il purchased** same day (Box.co.il — D14).
 3. ✅ **Q3 — DECIDED 2026-07-10: Grow (by Meshulam)** (see DECISIONS D13, comparison in `docs/PAYMENTS.md`). Remaining Dan actions: register עוסק → sign up at Grow → hand API keys to a session (B3 then goes live).
-4. **Q4 — Commission model**: flat 15% vs tiered 10/20.
+4. ✅ **Q4 — DECIDED 2026-07-10: tiered 10/20 + founding agents permanent 20%** (see DECISIONS D15). Implemented in the commission engine.
 
 ## Build order (Claude Code)
 1. ✅ **B0 — Scaffold** *(done 2026-07-10)*: Next.js app, Postgres schema (tenants, plans, orders, commission ledger, markup rules, settings), zero-setup local dev DB (embedded Postgres), mock wholesale provider behind a provider-agnostic adapter, seed script, Hebrew-RTL catalog homepage with computed ₪ prices.

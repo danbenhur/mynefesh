@@ -1,16 +1,37 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { commissionLedger, orders, plans, tenants } from "@/db/schema";
+import { commissionLedger, orders, plans, tenants, type Tenant } from "@/db/schema";
 import { getWholesaleProvider } from "./wholesale";
+import type { Db } from "@/db";
 
 /**
- * Commission rates by tenant tier. Q4 (flat 15% vs tiered 10/20) is
- * undecided — PROVISIONAL: every tier accrues flat 15% for now. The
- * ledger stores the rate per row, so a later change never rewrites history.
+ * Commission model (Q4, decided 2026-07-10 — DECISIONS D15):
+ * - founding tier: permanent 20% (grandfathered pilot agents)
+ * - standard tier: tiered 10/20 — 10% normally, 20% once the tenant hits
+ *   30 delivered orders in the calendar month (from that order onward;
+ *   the retroactive top-up for the month's earlier orders runs with the
+ *   monthly statement job, still to be built).
+ * The ledger stores the rate per row, so rule changes never rewrite history.
  */
-const COMMISSION_RATES: Record<string, number> = {
-  standard: 0.15,
-};
+const TIER_THRESHOLD_ORDERS = 30;
+
+async function commissionRate(db: Db, tenant: Tenant): Promise<number> {
+  if (tenant.commissionTier === "founding") return 0.2;
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.tenantId, tenant.id),
+        eq(orders.status, "delivered"),
+        gte(orders.createdAt, monthStart),
+      ),
+    );
+  return Number(count) >= TIER_THRESHOLD_ORDERS ? 0.2 : 0.1;
+}
 
 export interface PlaceOrderInput {
   planId: string;
@@ -89,8 +110,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<string> {
       .from(tenants)
       .where(eq(tenants.id, input.tenantId));
     if (tenant && tenant.status === "active") {
-      const rate =
-        COMMISSION_RATES[tenant.commissionTier] ?? COMMISSION_RATES.standard;
+      const rate = await commissionRate(db, tenant);
       await db
         .insert(commissionLedger)
         .values({

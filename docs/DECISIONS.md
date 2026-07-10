@@ -21,11 +21,12 @@
 ## 2026-07-10 (later)
 - **D13. Payment provider (Q3 decided): Grow (by Meshulam)** — Dan approved ("take grow"). Reasons: fastest self-signup, hosted secure checkout (minimal compliance), native Bit support, fees in line with the 3% model assumption. Prerequisite: Dan registers עוסק. B3 will be built against Grow's hosted-page API behind a payments adapter (switchable later).
 
+- **D15. Commission model (Q4 decided): tiered + founding** — standard agents: 10%, upgraded to 20% from the 30th delivered order in a calendar month (retroactive top-up for that month's earlier orders will run with the monthly statement job); founding agents (first 2–3 pilot friends): permanent 20%. Implemented and verified same day; supersedes PD2.
 - **D14. Domain purchased**: Dan bought **simkal.co.il** (2026-07-10, registrar: Box.co.il, confirmation received). Brand + domain now fully secured; unblocks hosting hookup and Meta/WhatsApp business verification.
 
 ## PROVISIONAL — Dan to confirm (made autonomously during Shabbat run, 2026-07-10)
 - **PD1. Mock payment**: until Q3 is decided, checkout "charges" nothing — orders are created as already-paid so the full flow can be tested. Real payment provider replaces this in B3.
-- **PD2. Commission rate**: flat **15%** accrues on every agent-attributed order until Q4 is decided. Each ledger row stores its own rate, so switching to tiered later never rewrites history.
+- ~~**PD2. Commission rate**: flat 15% until Q4 decided.~~ *Resolved by D15 (tiered + founding).*
 - **PD3. Storefront resolution**: agent subdomain (joe.simkal.co.il) in production; `?tenant=slug` override for dev/preview (kept via cookie through checkout). Reserved subdomains: www, app, admin, api.
 - **PD4. QR delivery v1**: on-screen on the order page only. Email delivery = B4, WhatsApp = B5.
 - **PD5. Unknown/suspended agent subdomain** shows the main SimKal store (graceful fallback, no error page).
