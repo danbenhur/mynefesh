@@ -15,8 +15,10 @@
 - **D10. Pricing mechanics**: retail ₪ = wholesale $ × per-region markup (DB table) × USD→ILS rate × FX buffer, rounded to X.90. All knobs live in the database (`markup_rules`, `app_settings`) so they're tunable without a deploy. Seeded placeholder values (×~2 markup, rate 3.70, 3% buffer) pending real quotes (Q1).
 - **D11. Repo location (temporary)**: the project currently lives on a standalone branch (`claude/kickoff-md-i2j6um`) pushed to Dan's existing `mynefesh` GitHub repository, because this session could only push there. It shares no history or files with MyNefesh. When Dan creates a dedicated repository, the branch moves over in one step — nothing else changes.
 
+## 2026-07-10 (continued)
+- **D12. Brand name (Q2 decided): SimKal / סימקל** — Dan's pick from vetted shortlist. Composes as "Joe ⚡ powered by SimKal". No eSIM-brand collision found; simkal.com belongs to a Turkish calibration lab (unrelated industry, no conflict). Domains simkal.co.il / simkal.io / simkal.co showed no DNS records at decision time. **Dan action: buy simkal.co.il (+ .co/.io if cheap) ASAP — availability not guaranteed until purchased.** Also rejected en route: "Magic eSIM" (existing app), "MySim" (domains taken, generic).
+
 ## Open (Decision Queue — see BACKLOG.md)
-- Q1. Wholesale provider (BLOCKER — need quotes: Yesim, eSIM Access, Airalo Partners)
-- Q2. Brand name + domain (should compose with agent names: "Joe + BRAND")
+- Q1. Wholesale provider (BLOCKER — need quotes: Yesim, eSIM Access, Airalo Partners; Dan doing sign-ups)
 - Q3. Payment provider (Meshulam / Grow / Tranzila vs Stripe; ₪ + Bit support)
 - Q4. Commission model: flat 15% vs tiered 10/20 (Claude recommends tiered)

@@ -3,7 +3,7 @@
 Status: B0 scaffold implemented (schema + mock wholesale provider + seeded Hebrew catalog page). Blocked items marked ⛔ (see Decision Queue in BACKLOG.md).
 
 ## 1. System overview
-- **Storefront**: Next.js, Hebrew-first (RTL) + English. Multi-tenant via wildcard subdomain (`{agent}.BRAND.co.il`) + main site.
+- **Storefront**: Next.js, Hebrew-first (RTL) + English. Multi-tenant via wildcard subdomain (`{agent}.simkal.co.il`) + main site.
 - **Backend**: single shared backend. Postgres. Order flow: checkout → payment webhook → provision eSIM via wholesale API → deliver QR (email + WhatsApp).
 - **Wholesale provider**: ⛔ pending quotes (Yesim / eSIM Access / Airalo Partners).
 - **Payments**: ⛔ pending decision (Meshulam / Grow / Tranzila vs Stripe; must support Israeli cards ₪ + Bit).
@@ -11,7 +11,7 @@ Status: B0 scaffold implemented (schema + mock wholesale provider + seeded Hebre
 
 ## 2. Multi-tenancy (agent storefronts)
 `tenants` table: `id, slug, display_name, photo_url, accent_color, agent_whatsapp, commission_tier, status, created_at`.
-- v1 = **subdomain skin** (tier 2): agent name in header lockup ("Joe eSIM ⚡ powered by BRAND"), photo, accent color, curated "Joe's picks".
+- v1 = **subdomain skin** (tier 2): agent name in header lockup ("Joe eSIM ⚡ powered by SimKal"), photo, accent color, curated "Joe's picks".
 - Attribution: any order placed on `joe.*` credits Joe. No cookies/ref params needed.
 - Legal footer, T&Cs, seller-of-record = ours on every tenant. Agents are marketing partners, not resellers.
 - Onboarding: agent fills a form → row created in `pending` status → Dan approves with one tap (admin panel or WhatsApp message to admin bot).
