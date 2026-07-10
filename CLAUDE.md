@@ -16,6 +16,7 @@
 - The repo docs are the single source of truth. Chat history is disposable.
 
 ## Rules
+- **Speak to Dan short and precise.** Lead with the answer; bullets over paragraphs; no long explanations unless he asks. (Dan's explicit request, 2026-07-10.)
 - Brainstorming is welcome in these sessions. Always end brainstorms by writing conclusions to the docs.
 - If a task is blocked on a Dan-decision, add it to "Decision Queue" in BACKLOG.md and tell him plainly what you need.
 - Explain everything at product level, not code level. Show Dan outcomes (screenshots, URLs, plain-language summaries), not diffs.
