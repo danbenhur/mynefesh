@@ -1,6 +1,6 @@
 # SPEC v0
 
-Status: pre-implementation. Blocked items marked ⛔ (see Decision Queue in BACKLOG.md).
+Status: B0 scaffold implemented (schema + mock wholesale provider + seeded Hebrew catalog page). Blocked items marked ⛔ (see Decision Queue in BACKLOG.md).
 
 ## 1. System overview
 - **Storefront**: Next.js, Hebrew-first (RTL) + English. Multi-tenant via wildcard subdomain (`{agent}.BRAND.co.il`) + main site.

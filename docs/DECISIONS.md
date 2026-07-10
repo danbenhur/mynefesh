@@ -10,6 +10,11 @@
 - **D7. Workflow**: repo is the single source of truth; all brainstorm + execution happens in Claude Code sessions (incl. from mobile); this doc structure is the memory.
 - **D8. Working economic model**: $18 AOV, ~50% wholesale, 15% commission, ~30% net margin — all assumptions pending real quotes.
 
+## 2026-07-10 (session: B0 scaffold)
+- **D9. Stack for B0** (Claude, per D2 mandate): Next.js 15 + TypeScript, Postgres via Drizzle ORM. Local dev uses an embedded Postgres (PGlite) with zero setup; production will use a managed Postgres via `DATABASE_URL`. Wholesale side is a provider-agnostic adapter (`src/lib/wholesale/`) with a mock implementation, so Q1's winner plugs in as one file.
+- **D10. Pricing mechanics**: retail ₪ = wholesale $ × per-region markup (DB table) × USD→ILS rate × FX buffer, rounded to X.90. All knobs live in the database (`markup_rules`, `app_settings`) so they're tunable without a deploy. Seeded placeholder values (×~2 markup, rate 3.70, 3% buffer) pending real quotes (Q1).
+- **D11. Repo location (temporary)**: the project currently lives on a standalone branch (`claude/kickoff-md-i2j6um`) pushed to Dan's existing `mynefesh` GitHub repository, because this session could only push there. It shares no history or files with MyNefesh. When Dan creates a dedicated repository, the branch moves over in one step — nothing else changes.
+
 ## Open (Decision Queue — see BACKLOG.md)
 - Q1. Wholesale provider (BLOCKER — need quotes: Yesim, eSIM Access, Airalo Partners)
 - Q2. Brand name + domain (should compose with agent names: "Joe + BRAND")

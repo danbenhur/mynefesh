@@ -7,8 +7,8 @@
 4. **Q4 — Commission model**: flat 15% vs tiered 10/20.
 
 ## Build order (Claude Code)
-1. **B0 — Scaffold**: Next.js app, Postgres schema (tenants, plans, orders, commissions), local dev env, seed data with mock wholesale provider. *(Can start now — provider-agnostic adapter interface so Q1 plugs in later.)*
-2. **B1 — Storefront v1**: catalog, plan page, Hebrew RTL, mobile-first. Mock checkout.
+1. ✅ **B0 — Scaffold** *(done 2026-07-10)*: Next.js app, Postgres schema (tenants, plans, orders, commission ledger, markup rules, settings), zero-setup local dev DB (embedded Postgres), mock wholesale provider behind a provider-agnostic adapter, seed script, Hebrew-RTL catalog homepage with computed ₪ prices.
+2. **B1 — Storefront v1** *(next)*: catalog, plan page, Hebrew RTL, mobile-first. Mock checkout.
 3. **B2 — Multi-tenant skins**: wildcard subdomain routing, tenant theming, attribution.
 4. **B3 — Payments**: real provider integration (post-Q3), ₪ pricing, webhooks.
 5. **B4 — Provisioning**: wholesale adapter (post-Q1), QR delivery email, retry/auto-refund path.
