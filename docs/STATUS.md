@@ -2,6 +2,23 @@
 
 Written for Dan, plain language. All work is saved and verified.
 
+## Afternoon batch (added after Dan said "keep going")
+
+4. **Agents can now join by themselves**: a Hebrew signup page — store
+   name, web address, WhatsApp, color — creates a "waiting for approval"
+   store. Tested: a fake agent ("דנה eSIM") signed up.
+5. **Your admin panel exists**: see orders, revenue, how much commission
+   each agent is owed — and approve a new agent with one tap. Tested:
+   approved דנה, her store went live instantly. (Password-protected;
+   proper hardening before going public.)
+6. **Payment decision (Q3) is prepped**: full comparison in
+   docs/PAYMENTS.md. Bottom line: Stripe impossible in Israel;
+   **recommended: Grow (by Meshulam)** — fastest to set up, supports Bit.
+   You only need to reply "approved: Grow".
+7. **Support bot's knowledge base written** (docs/SUPPORT-KB.md):
+   per-device install guides, troubleshooting, refund rules — ready for
+   the WhatsApp bot build (B5).
+
 ## What's built and working
 
 The whole first version of the store now exists and was tested like a real

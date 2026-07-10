@@ -3,7 +3,7 @@
 ## Decision Queue (Dan)
 1. ⛔ **Q1 — Wholesale provider** (BLOCKER for catalog/margins): sign up at Yesim Partner, eSIM Access, Airalo Partners → paste price sheets for Europe/US/Thailand into a session.
 2. ✅ **Q2 — DECIDED 2026-07-10: SimKal / סימקל** (see DECISIONS D12). Remaining Dan action: **buy simkal.co.il** (+ .co/.io optionally).
-3. **Q3 — Payment provider** (₪ + Bit): ask Claude for a comparison when ready.
+3. **Q3 — Payment provider**: comparison ready in `docs/PAYMENTS.md`. **Claude recommends Grow (by Meshulam)** — Stripe is out (needs a US company). Dan: reply "approved: Grow" or pick another, then sign up when convenient.
 4. **Q4 — Commission model**: flat 15% vs tiered 10/20.
 
 ## Build order (Claude Code)
@@ -13,8 +13,8 @@
 4. **B3 — Payments**: real provider integration (post-Q3), ₪ pricing, webhooks.
 5. **B4 — Provisioning**: wholesale adapter (post-Q1), QR delivery email, retry/auto-refund path.
 6. **B5 — WhatsApp**: Meta Cloud API setup, delivery messages, tier-1 support bot + KB, escalation flow.
-7. **B6 — Affiliate ops**: commission ledger, agent onboarding form, monthly statements.
-8. **B7 — Admin panel + weekly digest.**
+7. **B6 — Affiliate ops**: ~~commission ledger~~ ✅, ~~agent onboarding form~~ ✅ *(done 2026-07-10: self-serve /agents/join → pending tenant)*. Remaining: monthly statements (needs WhatsApp/email delivery — after B5).
+8. **B7 — Admin panel + weekly digest**: minimal panel ✅ *(done 2026-07-10: /admin — stats, one-tap agent approve/suspend, orders, commission owed; password-gated, proper auth hardening still pending)*. Remaining: refunds + markup-rule editing, weekly digest.
 
 ## Non-code (Dan, whenever)
 - Register עוסק / business entity; accountant chat re: VAT on eSIM sales + telecom-license question (expected: no license needed, verify).
