@@ -17,6 +17,6 @@
 8. **B7 — Admin panel + weekly digest**: minimal panel ✅ *(done 2026-07-10: /admin — stats, one-tap agent approve/suspend, orders, commission owed; password-gated, proper auth hardening still pending)*. Remaining: refunds + markup-rule editing, weekly digest.
 
 ## Non-code (Dan, whenever)
-- Register עוסק / business entity; accountant chat re: VAT on eSIM sales + telecom-license question (expected: no license needed, verify).
+- Register עוסק / business entity — **now critical path**: required by Grow/any IL payment processor (no company needed; עוסק is enough — 2026-07-10). עוסק פטור ok up to ~₪123K/yr; verify Grow accepts פטור at signup (assumption). Accountant chat re: VAT on eSIM sales (affects פטור/מורשה choice) + telecom-license question (expected: no license needed, verify).
 - Meta Business account (needs brand name first).
 - Recruit first 2–3 agent friends as pilot ("founding agents" — consider grandfathered 20% rate).
