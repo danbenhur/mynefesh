@@ -29,6 +29,12 @@ async function migrate() {
 }
 
 async function main() {
+  // On Vercel builds without a database configured, skip quietly —
+  // the app itself will fail loudly at runtime if DATABASE_URL is missing.
+  if (process.env.VERCEL && !process.env.DATABASE_URL) {
+    console.warn("VERCEL build without DATABASE_URL — skipping migrate/seed");
+    return;
+  }
   await migrate();
   console.log("✓ migrations applied");
 
