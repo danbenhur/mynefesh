@@ -21,8 +21,8 @@
 ## 2026-07-10 (later)
 - **D13. Payment provider (Q3 decided): Grow (by Meshulam)** — Dan approved ("take grow"). Reasons: fastest self-signup, hosted secure checkout (minimal compliance), native Bit support, fees in line with the 3% model assumption. Prerequisite: Dan registers עוסק. B3 will be built against Grow's hosted-page API behind a payments adapter (switchable later).
 
-- **D15. Commission model (Q4 decided): tiered + founding** — standard agents: 10%, upgraded to 20% from the 30th delivered order in a calendar month (retroactive top-up for that month's earlier orders will run with the monthly statement job); founding agents (first 2–3 pilot friends): permanent 20%. Implemented and verified same day; supersedes PD2.
 - **D14. Domain purchased**: Dan bought **simkal.co.il** (2026-07-10, registrar: Box.co.il, confirmation received). Brand + domain now fully secured; unblocks hosting hookup and Meta/WhatsApp business verification.
+- **D15. Commission model (Q4 decided): tiered 10/20 + founding tier** — Dan approved ("tiered+founding"). Standard agents: 10%, upgraded to 20% from the 30th delivered order in a calendar month (retroactive top-up for that month's earlier orders will run with the monthly statement job — to build). Founding agents (first 2–3 pilot friends): permanent 20% via `founding` tier. Implemented and verified same day: standard agent accrued 10%, founding agent 20%, ledger keeps per-row rates. Supersedes provisional PD2.
 
 ## PROVISIONAL — Dan to confirm (made autonomously during Shabbat run, 2026-07-10)
 - **PD1. Mock payment**: until Q3 is decided, checkout "charges" nothing — orders are created as already-paid so the full flow can be tested. Real payment provider replaces this in B3.
@@ -33,5 +33,4 @@
 
 ## Open (Decision Queue — see BACKLOG.md)
 - Q1. Wholesale provider (BLOCKER — need quotes: Yesim, eSIM Access, Airalo Partners; Dan doing sign-ups)
-- Q3. Payment provider (Meshulam / Grow / Tranzila vs Stripe; ₪ + Bit support)
-- Q4. Commission model: flat 15% vs tiered 10/20 (Claude recommends tiered)
+- ~~Q2~~ decided → D12 · ~~Q3~~ decided → D13 · ~~Q4~~ decided → D15
