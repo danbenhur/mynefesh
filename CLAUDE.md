@@ -161,6 +161,10 @@ whatsapp_session       ← one row per (user, calendar date)
 
 user_sessions          ← managed by connect-pg-simple
 
+system_health          ← keep-alive watchdog (migration 0019); single row (id=1)
+  id (int pk, always 1), last_ping_at (timestamptz)
+  — upserted by GET /api/health; startup warns if >1h stale
+
 api_usage              ← spend-protection log (migration 0014)
   id (uuid), kind ('anthropic'|'sms'), user_id → users (set null, uuid),
   occurred_at (timestamptz), day_utc (date),
@@ -187,7 +191,7 @@ api_usage              ← spend-protection log (migration 0014)
 - `POST /logout` — Destroy session
 
 ### Onboarding (`/api/onboarding`)
-- `POST /complete` — Mark onboarding done for current user (`onboarding_completed_at = now()`); creates default `user_settings` row
+- `POST /complete` — Mark onboarding done for current user (`onboarding_completed_at = now()`) and seed starter umbrellas. Does NOT create the `user_settings` row — that happens at first login in the OAuth callback (`routes/auth.ts`)
 
 ### Admin (`/api/admin`) — Dan-only (gated by `is_sandbox_user` or future role check)
 - `GET /invites` — List all rows in `allowed_emails`
@@ -293,7 +297,10 @@ Progress computation for resolutions:
 - `currentStreak` counts backwards from the last answered date
 
 ### `lib/whatsapp.ts`
-Thin wrapper: `sendWhatsApp(to, text)` → `twilio.messages.create()`.
+`sendSMS(text, to?)` → `twilio.messages.create()`, gated by the daily SMS cap. Exports `normalizePhone(raw)`: strips the legacy `whatsapp:` prefix, converts Israeli local format (`05x…` → `+9725x…`), strips separators, validates E.164. `sendSMS` normalizes every destination and forces its channel to match `from` (a `whatsapp:` sender gets a `whatsapp:` recipient, an SMS sender gets bare E.164) — never trust stored phone format.
+
+### `lib/keepalive.ts`
+Keep-alive watchdog (July 2026 incident — `docs/specs/001-sms-outage.md`). `recordHealthPing()` upserts `system_health.last_ping_at` from `GET /api/health` (throttled to 1 write/min). `warnIfKeepaliveStale()` runs at startup and logs `[KEEPALIVE WARNING]` when the last ping is missing or >1h old, so a dead cron-job.org job is never silent again.
 
 ### `lib/whatsapp-messages.ts`
 Hebrew message templates: check-in prompt, snooze followup, final message, morning skip recovery, thanks, sandbox renewal reminder.
@@ -379,8 +386,10 @@ ALLOWED_ORIGIN             # https://mynefesh.vercel.app (CORS)
 ANTHROPIC_API_KEY          # Claude API key
 TWILIO_ACCOUNT_SID         # Twilio account SID
 TWILIO_AUTH_TOKEN          # Twilio auth token
-TWILIO_WHATSAPP_FROM       # whatsapp:+14155238886 (sandbox number)
-USER_WHATSAPP_NUMBER       # whatsapp:+972XXXXXXXXX (Dan's number)
+TWILIO_SMS_FROM            # +1XXXXXXXXXX (paid SMS number — preferred `from`)
+USER_SMS_NUMBER            # +972XXXXXXXXX (fallback destination when no per-user phone)
+TWILIO_WHATSAPP_FROM       # whatsapp:+14155238886 (legacy sandbox fallback for TWILIO_SMS_FROM)
+USER_WHATSAPP_NUMBER       # whatsapp:+972XXXXXXXXX (legacy fallback for USER_SMS_NUMBER)
 PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 ```
 
@@ -405,6 +414,7 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 - **Archived umbrellas** — Archive, browse, restore flow
 - **Full Hebrew + RTL UI** — All screens localized: login, nav tabs, HomeScreen, ChatScreen, ProfileScreen, UmbrellaDetail, ArchivedScreen; `index.html` has `lang="he" dir="rtl"`
 - **Resolutions** — Time-bound commitments per umbrella with progress tracking, streak computation, auto-complete via scheduler, abandon flow
+- **SMS-outage hardening (July 2026)** — Keep-alive watchdog (`system_health` table + startup `[KEEPALIVE WARNING]`), phone normalization at send time + E.164 data backfill (migration 0019), user-scoped snooze reset, honest scheduler diagnostics. See `docs/specs/001-sms-outage.md`
 
 ---
 
@@ -486,7 +496,7 @@ A desync will now fail the Render build before it can reach the server.
 
 5. **Jerusalem timezone throughout.** The scheduler, interview composer, and Shabbat logic all use `Asia/Jerusalem`. The `interview_date` column is a calendar date in that zone.
 
-6. **Render cold starts.** Render's free tier spins down after inactivity. First request after sleep takes ~30s. Scheduler won't fire during sleep.
+6. **Render cold starts — the scheduler's liveness depends on the external keep-alive.** Render's free tier spins down after ~15 min without inbound HTTP; internal node-cron does NOT keep it awake, and the scheduler won't fire during sleep. A cron-job.org job pings `GET /api/health` every 10 min to keep it warm. When that job died (June 30, 2026) it caused a 9-day silent SMS outage — see `docs/specs/001-sms-outage.md`. Defense: `/api/health` records `last_ping_at` in the `system_health` table, and startup logs a loud `[KEEPALIVE WARNING]` if the last ping is over an hour old.
 
 7. **Schema is now multi-tenant.** All tables have `user_id` FK to `users`. Never query without a userId filter — cross-user data leakage is the failure mode. Every route scopes all queries to `req.user.id`.
 

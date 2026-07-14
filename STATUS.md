@@ -22,11 +22,15 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**Multi-tenancy v2 shipped (2026-06-28).** master is at `e812ec7` — clean single commit on top of `dbeaf8a`. Migration seeder deleted (root cause of two production incidents). Migrations 0017 + 0018 are both idempotent catch-alls. Render will auto-deploy; startup self-heal probe will log schema state. Verify login works after Render redeploys.
+**SMS outage resolved + hardening (2026-07-14).** Nightly check-ins were silently down Jul 5–14: the cron-job.org keep-alive died June 30 and auto-deactivated, so Render's free tier slept through every 22:00 tick (full post-mortem: `docs/specs/001-sms-outage.md`). Keep-alive re-enabled and verified. Hardening PR adds a `system_health` heartbeat table + startup `[KEEPALIVE WARNING]`, phone normalization at send time + E.164 backfill (migration 0019), a cross-tenant snooze-reset fix, and honest scheduler diagnostics. Verify the warning does NOT appear on next Render deploy (means the ping is being recorded).
 
 ---
 
 ## Recently shipped (last ~2 weeks)
+
+- **SMS-outage fix + hardening (2026-07-14):** Root-caused the 9-day silent check-in outage (dead keep-alive → Render asleep at tick time; masked by the Jun 28–Jul 4 migration crash-loop that pinned prod to the old build). Shipped: keep-alive watchdog (`system_health` table, health-ping recording, loud startup warning), `normalizePhone()` + channel matching in `sendSMS`, migration 0019 E.164 backfill, user-scoped snooze reset in settings PATCH, scheduler diag line now prints both `shabbatMode` and `inShabbatWindow`. Incident spec: `docs/specs/001-sms-outage.md`.
+
+- **Migration 0017 constraint fix (2026-07-04, commit 756f8ff):** Umbrella uniqueness loosened to `(user_id, parent_id, name)` — unblocked the multi-tenancy migration that had been rolling back since Jun 28.
 
 - **Multi-tenancy v2 (2026-06-28, commit e812ec7):** Killed migration-seeder.ts (root cause of seeder footgun incidents). Added migrations 0017 (multi-tenancy DDL) and 0018 (catch-all re-run, no TRUNCATE). All routes scoped to req.user.id. New /api/admin and /api/onboarding routes. OnboardingScreen + AdminScreen added to client. New scheduler per-user Map cache. Vitest integration tests + GitHub Actions CI. Startup self-heal probe logs schema mismatch immediately. Single clean commit; force-pushed to clean master first.
 
@@ -50,7 +54,8 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
-- **Render redeploy verification:** after push, confirm login works end-to-end. Schema self-heal probe in startup logs will tell you if migration 0017/0018 applied correctly.
+- **Post-deploy verification (SMS hardening):** after Render redeploys, check startup logs — expect `[keepalive] last health ping Xm ago — keep-alive OK` (not `[KEEPALIVE WARNING]`), and confirm tonight's 22:00 check-in actually arrives.
+- **Pre-existing broken test:** `webhook-routing.test.ts` › "inbound בוצע from user A marks only user A session as processed" fails on a clean DB at HEAD (user B's session row missing at assert time) — unrelated to the hardening changes, needs its own look.
 - **Inert ProfileScreen controls:** personality/language chips + morning-brief/AI-nudges toggles still not wired (pending per-user settings work now that user_id exists in schema).
 - **Minor debt:** stray `TODO/FIXME` comments to sweep. Optional.
 
@@ -78,7 +83,7 @@ For schema/routes/file layout see CLAUDE.md.
 
 - **Spend caps are conservative by design** — `DAILY_API_BUDGET_USD=5` and `DAILY_SMS_LIMIT=50` are intentionally low. Raise via env vars on Render when traffic warrants. Chat rate limit (5 msg/hr) is an in-memory constant in `chat.ts`.
 - **Token pricing must be maintained manually** — `server/src/lib/pricing.ts` hardcodes claude-sonnet-4-6 rates. If the model or pricing changes, update that file.
-- **Render free tier sleeps after 15 min idle** — cron-job.org ping every 10 min keeps it warm so the scheduler actually fires.
+- **Render free tier sleeps after 15 min idle** — cron-job.org ping every 10 min keeps it warm so the scheduler actually fires. This dependency caused the Jul 5–14 silent SMS outage when the job auto-deactivated; the `system_health` watchdog now shouts at startup if the ping goes stale. Permanent fix would be a paid Render instance. Enable cron-job.org failure notifications.
 - **Twilio SMS** — paid (~$3/mo). Real number, no more sandbox. Webhook signature-verified.
 - **Multi-tenant** — schema has userId on all tables. Auth via `allowed_emails` table (admin-managed). Dan is always `00000000-0000-0000-0000-000000000001`.
 - **Hebrew + RTL** — all UI strings are Hebrew, layout direction RTL. English fallback would need an i18n library if ever needed.
