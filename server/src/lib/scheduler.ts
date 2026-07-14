@@ -129,15 +129,18 @@ async function tickCheckin() {
   try {
     const { hhmm, date, dow } = jerusalemNow()
     const now = new Date()
+    const inWindow = inShabbatWindow(now)
     const allUsers = await getAllUsersWithPhone()
     console.log(`[scheduler-diag] tickCheckin found ${allUsers.length} users with phone`)
 
     for (const settings of allUsers) {
       try {
-        console.log(`[scheduler-diag] user=${settings.userId.slice(0, 8)} phone=${settings.phoneNumber ? settings.phoneNumber.slice(-4) : 'NULL'} checkinTime=${settings.checkinTime} hhmm=${hhmm} shabbat=${settings.shabbatMode} session?=fetching`)
+        // shabbatMode is the user's stored preference; inShabbatWindow is the live
+        // computed state — print both so one is never mistaken for the other.
+        console.log(`[scheduler-diag] user=${settings.userId.slice(0, 8)} phone=${settings.phoneNumber ? settings.phoneNumber.slice(-4) : 'NULL'} checkinTime=${settings.checkinTime} hhmm=${hhmm} shabbatMode=${settings.shabbatMode} inShabbatWindow=${inWindow} session?=fetching`)
         if (!settings.phoneNumber) continue
 
-        if (settings.shabbatMode && inShabbatWindow(now)) continue
+        if (settings.shabbatMode && inWindow) continue
 
         const effectiveCheckinTime =
           dow === 6 && settings.saturdayCheckinTime

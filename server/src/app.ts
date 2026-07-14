@@ -23,6 +23,7 @@ import analyticsRouter from './routes/analytics.js'
 import { umbrellaResolutionsRouter, resolutionsRouter } from './routes/resolutions.js'
 import onboardingRouter from './routes/onboarding.js'
 import adminRouter from './routes/admin.js'
+import { recordHealthPing } from './lib/keepalive.js'
 import type { AuthUser } from './auth.js'
 
 export const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173'
@@ -67,8 +68,11 @@ app.use(passport.initialize())
 app.use(passport.session())
 
 // Public endpoints — no auth required
+// Pinged by the external keep-alive job; recordHealthPing feeds the startup
+// staleness watchdog (see lib/keepalive.ts).
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  recordHealthPing()
 })
 app.use('/auth', authRouter)
 

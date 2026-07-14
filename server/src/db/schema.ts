@@ -226,3 +226,11 @@ export const apiUsage = pgTable('api_usage', {
   kindDayIdx: index('idx_api_usage_kind_day').on(t.kind, t.dayUtc),
   userIdIdx: index('idx_api_usage_user_id').on(t.userId),
 }))
+
+// Single-row table (id always 1) tracking the external keep-alive ping.
+// GET /api/health upserts last_ping_at; startup warns if it's stale, so a dead
+// cron-job.org job can never silently stop the scheduler again (July 2026 incident).
+export const systemHealth = pgTable('system_health', {
+  id: integer('id').primaryKey().default(1),
+  lastPingAt: timestamp('last_ping_at', { withTimezone: true }).defaultNow().notNull(),
+})

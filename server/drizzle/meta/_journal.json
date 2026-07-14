@@ -134,6 +134,13 @@
       "when": 1782763200000,
       "tag": "0018_ensure_multi_tenancy",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784052691946,
+      "tag": "0019_keepalive_and_phone_normalize",
+      "breakpoints": true
     }
   ]
 }
