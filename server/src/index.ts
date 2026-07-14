@@ -4,6 +4,7 @@ import { dirname, join } from 'path'
 import { sql } from 'drizzle-orm'
 import { getDb } from './db/index.js'
 import { startScheduler } from './lib/scheduler.js'
+import { warnIfKeepaliveStale } from './lib/keepalive.js'
 import app from './app.js'
 
 const PORT = process.env.PORT ?? 3001
@@ -40,6 +41,7 @@ if (process.env.DATABASE_URL) {
   }
 
   await verifySchemaMatchesCode()
+  await warnIfKeepaliveStale()
   startScheduler()
   console.log('[startup-diag] scheduler started')
 }

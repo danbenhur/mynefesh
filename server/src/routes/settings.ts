@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { userSettings, whatsappSession } from '../db/schema.js'
 import { invalidateSettingsCache } from '../lib/scheduler.js'
@@ -89,13 +89,13 @@ router.patch('/', async (req, res) => {
       const existing = await db
         .select({ state: whatsappSession.state })
         .from(whatsappSession)
-        .where(eq(whatsappSession.date, today))
+        .where(and(eq(whatsappSession.date, today), eq(whatsappSession.userId, req.user!.id)))
 
       if (existing.length > 0 && existing[0].state === 'snoozed') {
         await db
           .update(whatsappSession)
           .set({ state: 'pending', snoozeCount: 0, lastMessageAt: null, nextSendAt: null })
-          .where(eq(whatsappSession.date, today))
+          .where(and(eq(whatsappSession.date, today), eq(whatsappSession.userId, req.user!.id)))
       }
     }
 
