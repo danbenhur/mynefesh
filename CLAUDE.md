@@ -496,7 +496,10 @@ A desync will now fail the Render build before it can reach the server.
 
 5. **Jerusalem timezone throughout.** The scheduler, interview composer, and Shabbat logic all use `Asia/Jerusalem`. The `interview_date` column is a calendar date in that zone.
 
-6. **Render cold starts — the scheduler's liveness depends on the external keep-alive.** Render's free tier spins down after ~15 min without inbound HTTP; internal node-cron does NOT keep it awake, and the scheduler won't fire during sleep. A cron-job.org job pings `GET /api/health` every 10 min to keep it warm. When that job died (June 30, 2026) it caused a 9-day silent SMS outage — see `docs/specs/001-sms-outage.md`. Defense: `/api/health` records `last_ping_at` in the `system_health` table, and startup logs a loud `[KEEPALIVE WARNING]` if the last ping is over an hour old.
+6. **Render cold starts — the scheduler's liveness depends on the external keep-alive.** Render's free tier spins down after ~15 min without inbound HTTP; internal node-cron does NOT keep it awake, and the scheduler won't fire during sleep. When the single cron-job.org ping died (June 30, 2026) it caused a 9-day silent SMS outage — see `docs/specs/001-sms-outage.md`. Defense in depth, three layers:
+   - **Two independent pingers** on `GET /api/health`: cron-job.org (every 10 min) + UptimeRobot (every 5 min, keyword monitor asserting the response contains `"status":"ok"`, email alert on failure). Both must die simultaneously for the server to sleep.
+   - **In-system watchdog**: `/api/health` records `last_ping_at` in the `system_health` table; startup logs a loud `[KEEPALIVE WARNING]` if the last ping is over an hour old.
+   - **Provider-side alerts**: UptimeRobot emails on down/up; cron-job.org failure notifications should stay enabled (its silent auto-deactivate is what caused the outage).
 
 7. **Schema is now multi-tenant.** All tables have `user_id` FK to `users`. Never query without a userId filter — cross-user data leakage is the failure mode. Every route scopes all queries to `req.user.id`.
 
@@ -599,6 +602,17 @@ GROUP BY day_utc ORDER BY day_utc DESC;
 - Never add hardcoded example data (names, placeholder content) to UI components
 - `CheckinScreen` was deleted — `App.tsx` routes `checkin` → `InterviewScreen`. Don't create a new one.
 - Before touching the WhatsApp scheduler, test locally with `NODE_ENV=development` and mock Twilio calls
+
+---
+
+## Working Agreement — Claude as Lead (2026-07-14)
+
+Claude leads planning and execution on myNefesh. Four standing rules:
+
+1. **Spec ownership.** Claude owns `docs/specs/` — numbered `NNN-short-slug.md`. Every incident gets a post-mortem spec; every non-trivial feature gets a spec before implementation. Keep specs updated when reality changes.
+2. **Clarify before implementing.** Ask Dan clarifying questions BEFORE writing code whenever a task has meaningful ambiguity (scope, UX behavior, data semantics, anything irreversible). Don't block on trivia — use judgment, state assumptions when proceeding.
+3. **End every session with `/handover`.** No session is done without it.
+4. **Route strategic topics to claude.ai.** When a task is strategic rather than technical — pricing, branding, positioning, life decisions — tell Dan to take it to claude.ai (with STATUS.md + CLAUDE.md attached) instead of handling it in a code session.
 
 ---
 
