@@ -83,7 +83,7 @@ For schema/routes/file layout see CLAUDE.md.
 
 - **Spend caps are conservative by design** — `DAILY_API_BUDGET_USD=5` and `DAILY_SMS_LIMIT=50` are intentionally low. Raise via env vars on Render when traffic warrants. Chat rate limit (5 msg/hr) is an in-memory constant in `chat.ts`.
 - **Token pricing must be maintained manually** — `server/src/lib/pricing.ts` hardcodes claude-sonnet-4-6 rates. If the model or pricing changes, update that file.
-- **Render free tier sleeps after 15 min idle** — cron-job.org ping every 10 min keeps it warm so the scheduler actually fires. This dependency caused the Jul 5–14 silent SMS outage when the job auto-deactivated; the `system_health` watchdog now shouts at startup if the ping goes stale. Permanent fix would be a paid Render instance. Enable cron-job.org failure notifications.
+- **Render free tier sleeps after 15 min idle** — two independent pingers keep it warm: cron-job.org (10 min) + UptimeRobot (5 min, keyword monitor with email alerts). This dependency caused the Jul 5–14 silent SMS outage when the single cron-job.org job auto-deactivated; the `system_health` watchdog now shouts at startup if the ping goes stale. Permanent fix would be a paid Render instance.
 - **Twilio SMS** — paid (~$3/mo). Real number, no more sandbox. Webhook signature-verified.
 - **Multi-tenant** — schema has userId on all tables. Auth via `allowed_emails` table (admin-managed). Dan is always `00000000-0000-0000-0000-000000000001`.
 - **Hebrew + RTL** — all UI strings are Hebrew, layout direction RTL. English fallback would need an i18n library if ever needed.

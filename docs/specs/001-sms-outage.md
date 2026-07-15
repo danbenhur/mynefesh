@@ -45,10 +45,12 @@ The outage surfaced as "SMS stopped" around July 5 rather than July 1 because a 
 ## Operational fix (already done, outside the repo)
 
 - cron-job.org job re-enabled, pinging `https://mynefesh.onrender.com/api/health` every 10 minutes, verified 200 OK (2026-07-14).
-- Recommended: enable cron-job.org's own failure notifications, and treat the job's "auto-deactivate on repeated failure" setting with suspicion — it's what turned one bad night into nine.
+- **Redundant second pinger (UptimeRobot)** added 2026-07-14: keyword monitor on the same endpoint every 5 minutes, asserting the response body contains `"status":"ok"`, with email alerts on down and on recovery. The two pingers have independent infrastructure and independent failure modes — both must die simultaneously before the server can sleep through a check-in.
+- cron-job.org failure notifications enabled. Its silent "auto-deactivate on repeated failure" behavior is what turned one bad night into nine.
 
 ## Prevention principles
 
+- **No single external dependency may gate a scheduled action.** The keep-alive is now two independent pingers (cron-job.org + UptimeRobot) with provider-side alerting; the outage required one failure, now it requires three (both pingers AND the alerts).
 - **Every external dependency that gates a scheduled action needs an in-system freshness check.** The scheduler can't log its own absence; something that *does* run (startup, or any inbound request) must check the heartbeat.
 - **Diagnostic logs must distinguish stored settings from computed state.** `shabbat=true` cost a full diagnostic round-trip.
 - **When a send path changes its source of truth (env var → DB column), migrate and validate the data in the same change.** The phone-format bugs didn't cause this outage, but they were live ammunition waiting for the next one.
