@@ -75,9 +75,11 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Likely next steps (in priority order, my opinion)
 
-1. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
-3. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
-4. **Raise spend caps once traffic warrants** — defaults are conservative ($5/day API, 50 SMS/day); tune via env vars when invited users are active.
+1. **Dan's pre-invite checklist** — UptimeRobot second pinger, fix `TEST_DATABASE_URL` GitHub secret, then re-run CI (should be 24/24 now).
+2. **Merge PR #2** (multi-user unblock + delivery retry) and watch one night's logs for the callback answer.
+3. **Trial dry run** — second Google account end-to-end: invite → onboarding → phone → receive check-in. Then invite the first real user.
+4. **Chat tool use** — let Nefesh create tasks / update answers during chat. Biggest behavior upgrade still on the table.
+5. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
 
 ---
 
@@ -89,6 +91,9 @@ For schema/routes/file layout see CLAUDE.md.
 - **Twilio SMS** — paid (~$3/mo). Real number, no more sandbox. Webhook signature-verified.
 - **Multi-tenant** — schema has userId on all tables. Auth via `allowed_emails` table (admin-managed). Dan is always `00000000-0000-0000-0000-000000000001`.
 - **Hebrew + RTL** — all UI strings are Hebrew, layout direction RTL. English fallback would need an i18n library if ever needed.
+- **`IF EXISTS` hides typos in migrations** — 0017/0018 dropped constraints by the wrong name and nobody noticed for weeks (spec 003). After destructive DDL, assert the end state against `pg_constraint`; don't trust the no-op.
+- **Delivery-retry queue is in-memory** — a Render restart in the ~5 min after a check-in send drops that night's pending verification (no retry). Morning-skip message is the backstop.
+- **US long code → Israel loses ~7% of SMS** (error 30008/30003). Retry cuts this; if it persists across retries, switch sender (Israeli number / alphanumeric ID) rather than adding retries.
 - **The dispatch ↔ desktop bridge** intermittently hangs shell commands, breaking automated commit/push from code tasks. Manual git via PowerShell always works as a fallback.
 
 ---
