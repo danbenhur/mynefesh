@@ -137,18 +137,28 @@ async function handleInboundMessage(req: Request, res: Response) {
 async function handleDeliveryStatus(req: Request, res: Response) {
   try {
     const messageStatus = String(req.body?.MessageStatus ?? '')
+    const rawTo = String(req.body?.To ?? '')
+    // Log every callback receipt — during the July 2026 incident we couldn't
+    // tell whether callbacks were arriving at all (docs/specs/002).
+    console.log(`[webhook] delivery status callback: ${messageStatus} for ...${rawTo.slice(-4)}`)
+
     if (messageStatus === 'failed' || messageStatus === 'undelivered') {
-      // MessageTo is the destination (user's phone) — use it to scope the update
-      const rawTo = String(req.body?.To ?? '')
+      const isWhatsApp = /^whatsapp:/i.test(rawTo)
       const phone = rawTo.replace(/^whatsapp:/i, '').trim()
 
       const db = getDb()
       if (phone) {
+        // sandbox 'expired' is a WhatsApp-sandbox concept — a failed plain SMS
+        // (carrier issue like 30008) must not trigger the sandbox-renewal banner.
         await db
           .update(userSettings)
-          .set({ lastDeliveryFailureAt: new Date(), sandboxStatus: 'expired', updatedAt: new Date() })
+          .set({
+            lastDeliveryFailureAt: new Date(),
+            ...(isWhatsApp ? { sandboxStatus: 'expired' } : {}),
+            updatedAt: new Date(),
+          })
           .where(eq(userSettings.phoneNumber, phone))
-        console.log(`[webhook] Delivery failure (${messageStatus}) for ${phone} — sandbox marked expired`)
+        console.log(`[webhook] Delivery failure (${messageStatus}) for ${phone}${isWhatsApp ? ' — sandbox marked expired' : ''}`)
       } else {
         console.warn('[webhook] Delivery failure with no To phone — cannot scope update')
       }

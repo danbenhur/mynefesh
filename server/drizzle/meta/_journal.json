@@ -141,6 +141,13 @@
       "when": 1784052691946,
       "tag": "0019_keepalive_and_phone_normalize",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784455414471,
+      "tag": "0020_drop_legacy_date_uniques",
+      "breakpoints": true
     }
   ]
 }
