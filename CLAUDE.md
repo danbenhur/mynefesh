@@ -15,6 +15,12 @@ This is not a todo app. It is not a journal. It is an intelligent, proactive lif
 
 ---
 
+## dan-context protocol
+Personal source of truth: github.com/danbenhur/dan-context.
+End of session with a decision/status change → offer to update it. Never push silently.
+
+---
+
 ## The User
 
 **Dan** — one user, deeply personal. This is not a generic SaaS tool.
@@ -77,6 +83,8 @@ All data tables have `user_id` FK to `users`. Auth is Google OAuth validated aga
 **`ALLOWED_GOOGLE_EMAIL` env var is now OBSOLETE** — allowlist is DB-driven. Remove it from Render after confirming login works post-deploy.
 
 ### Data Model (actual schema)
+
+
 
 ```
 users                          ← NEW (migration 0017)
