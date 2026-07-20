@@ -663,3 +663,6 @@ docs: update CLAUDE.md
 ```
 
 or split into two commits if only one changed. Either way, a session is not done until the commit(s) land. No exceptions.
+
+## Strategy layer
+Dan's big-picture context (mission, finances, priorities, cross-project decisions) lives in `danbenhur/dan-context`. This repo owns build detail only; route strategic questions there / to claude.ai "Dan HQ" project.
