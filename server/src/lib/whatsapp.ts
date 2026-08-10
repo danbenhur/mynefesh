@@ -45,6 +45,21 @@ async function recordSmsUsage(): Promise<void> {
   }
 }
 
+// Poll a sent message's delivery status from Twilio. Used by the scheduler's
+// delivery-verification tick — status callbacks proved unreliable in the July
+// 2026 incident (docs/specs/002-delivery-verification.md), so we pull instead.
+export async function fetchMessageStatus(sid: string): Promise<{ status: string; errorCode: number | null } | null> {
+  const client = getClient()
+  if (!client) return null
+  try {
+    const msg = await client.messages(sid).fetch()
+    return { status: msg.status, errorCode: msg.errorCode ?? null }
+  } catch (err) {
+    console.error(`[messaging] Failed to fetch status for ${sid}:`, (err as Error).message)
+    return null
+  }
+}
+
 export async function sendSMS(text: string, to?: string): Promise<string | null> {
   const todayCount = await getTodaySmsCount()
   console.log(`[sms-diag] todayCount=${todayCount} limit=${DAILY_SMS_LIMIT}`)

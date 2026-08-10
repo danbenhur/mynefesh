@@ -293,6 +293,7 @@ Cron runs every minute. Four tick functions:
 - `tickMorning()` — Sends 09:00 reminder if yesterday's check-in wasn't completed. Guards (in order): (1) time ≠ 09:00 → return immediately; (2) `interview_session.completed_at` set → skip; (3) all of yesterday's due questions have answers in `question_answers` → skip (belt-and-suspenders for failed `POST /complete`); (4) `whatsapp_session.state = 'completed'` → skip; otherwise sends MORNING_AFTER_SKIP.
 - `tickSandboxReminder()` — Sends once-per-day reminder ~60h before sandbox expiry. Runs entirely in-memory on idle minutes (cached settings); only hits DB when actually sending.
 - `tickResolutions()` — At 00:01 Jerusalem, auto-completes active resolutions whose `end_date` has passed; computes final score and sets `status='completed'`. Time check happens before any DB query.
+- `processDeliveryChecks()` — Delivery verification & retry (spec 002). Every check-in send enqueues an in-memory check; ~5 min later the tick polls Twilio for the message's real status. `undelivered`/`failed` → one resend (max 2 attempts/night), skipped if the user completed the check-in meanwhile. Queue is process memory — a restart drops pending checks (accepted; morning-skip is the backstop). No-ops instantly when the queue is empty.
 
 **Settings cache:** `user_settings` is cached in process memory with a 1-hour TTL via `getSettings()`. This eliminates ~250k idle Neon SELECT hits/month. `invalidateSettingsCache()` is exported and called from `PATCH /api/settings` so any settings change is reflected on the next tick without waiting for TTL.
 
@@ -305,7 +306,7 @@ Progress computation for resolutions:
 - `currentStreak` counts backwards from the last answered date
 
 ### `lib/whatsapp.ts`
-`sendSMS(text, to?)` → `twilio.messages.create()`, gated by the daily SMS cap. Exports `normalizePhone(raw)`: strips the legacy `whatsapp:` prefix, converts Israeli local format (`05x…` → `+9725x…`), strips separators, validates E.164. `sendSMS` normalizes every destination and forces its channel to match `from` (a `whatsapp:` sender gets a `whatsapp:` recipient, an SMS sender gets bare E.164) — never trust stored phone format.
+`sendSMS(text, to?)` → `twilio.messages.create()`, gated by the daily SMS cap. Exports `normalizePhone(raw)`: strips the legacy `whatsapp:` prefix, converts Israeli local format (`05x…` → `+9725x…`), strips separators, validates E.164. `sendSMS` normalizes every destination and forces its channel to match `from` (a `whatsapp:` sender gets a `whatsapp:` recipient, an SMS sender gets bare E.164) — never trust stored phone format. `fetchMessageStatus(sid)` polls a sent message's delivery status (used by the scheduler's delivery-verification tick — spec 002).
 
 ### `lib/keepalive.ts`
 Keep-alive watchdog (July 2026 incident — `docs/specs/001-sms-outage.md`). `recordHealthPing()` upserts `system_health.last_ping_at` from `GET /api/health` (throttled to 1 write/min). `warnIfKeepaliveStale()` runs at startup and logs `[KEEPALIVE WARNING]` when the last ping is missing or >1h old, so a dead cron-job.org job is never silent again.
@@ -423,6 +424,8 @@ PUBLIC_URL                 # https://mynefesh-api.onrender.com (for webhooks)
 - **Full Hebrew + RTL UI** — All screens localized: login, nav tabs, HomeScreen, ChatScreen, ProfileScreen, UmbrellaDetail, ArchivedScreen; `index.html` has `lang="he" dir="rtl"`
 - **Resolutions** — Time-bound commitments per umbrella with progress tracking, streak computation, auto-complete via scheduler, abandon flow
 - **SMS-outage hardening (July 2026)** — Keep-alive watchdog (`system_health` table + startup `[KEEPALIVE WARNING]`), phone normalization at send time + E.164 data backfill (migration 0019), user-scoped snooze reset, honest scheduler diagnostics. See `docs/specs/001-sms-outage.md`
+- **Delivery verification & retry (spec 002)** — Poll-based check ~5 min after each check-in send; auto-resend once on `undelivered`/`failed`. Callback handler logs every receipt and no longer marks the sandbox expired for plain-SMS failures
+- **Multi-user unblock (spec 003, migration 0020)** — Dropped legacy `UNIQUE(date)` constraints on `whatsapp_session`/`interview_session` that survived 0017/0018 due to a wrong constraint name in the DROP; they limited both tables to one user per calendar day and would have broken the first trial user
 
 ---
 

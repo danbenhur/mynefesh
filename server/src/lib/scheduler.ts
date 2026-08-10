@@ -3,7 +3,7 @@ import SunCalc from 'suncalc'
 import { and, eq, isNotNull, lt } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { userSettings, whatsappSession, resolutions, umbrellaQuestions, interviewSession, questionAnswers } from '../db/schema.js'
-import { sendSMS } from './whatsapp.js'
+import { sendSMS, fetchMessageStatus } from './whatsapp.js'
 import { checkinWithLink, MORNING_AFTER_SKIP, SANDBOX_EXPIRY_REMINDER } from './whatsapp-messages.js'
 import { computeResolutionProgress, todayJerusalem } from './resolutions.js'
 import { composeTodaysQuestions } from './interview-composer.js'
@@ -114,6 +114,111 @@ async function getAllUsersWithPhone(): Promise<SettingsRow[]> {
   return db.select().from(userSettings).where(isNotNull(userSettings.phoneNumber))
 }
 
+// --- Delivery verification & retry (spec 002) ---
+// SMS to Israel occasionally dies in transit AFTER Twilio accepts it (error
+// 30008, ~7% of sends in the July 2026 sample). Twilio's status callbacks
+// proved unreliable, so instead of waiting for them we poll: every check-in
+// send enqueues a verification, and ~5 minutes later we fetch the message's
+// status from Twilio. undelivered/failed → resend once (max 2 attempts total),
+// provided the user hasn't completed the check-in in the meantime.
+// The queue is in-memory: a restart loses pending verifications, which at
+// worst skips one night's retry. Accepted trade-off vs. a schema change.
+
+export interface DeliveryCheck {
+  sid: string
+  userId: string
+  sessionId: string
+  phone: string
+  text: string
+  sentAt: number
+  attempt: number
+}
+
+const DELIVERY_CHECK_DELAY_MS = 5 * 60_000 // wait before first status poll
+const DELIVERY_CHECK_MAX_AGE_MS = 45 * 60_000 // give up on non-final statuses
+const MAX_DELIVERY_ATTEMPTS = 2
+
+const deliveryChecks: DeliveryCheck[] = []
+
+export function enqueueDeliveryCheck(entry: DeliveryCheck): void {
+  deliveryChecks.push(entry)
+}
+
+interface DeliveryDeps {
+  fetchStatus: typeof fetchMessageStatus
+  send: typeof sendSMS
+  now: () => number
+}
+
+// Exported with injectable deps so tests can drive it without Twilio.
+export async function processDeliveryChecks(
+  deps: DeliveryDeps = { fetchStatus: fetchMessageStatus, send: sendSMS, now: Date.now },
+): Promise<void> {
+  if (deliveryChecks.length === 0) return
+  const db = getDb()
+
+  // Iterate over a snapshot; mutate the real queue via filtering afterwards.
+  const done = new Set<DeliveryCheck>()
+  for (const check of [...deliveryChecks]) {
+    const age = deps.now() - check.sentAt
+    if (age < DELIVERY_CHECK_DELAY_MS) continue
+
+    try {
+      const result = await deps.fetchStatus(check.sid)
+
+      if (!result) {
+        // Twilio unreachable or client not configured — retry the poll until too old.
+        if (age > DELIVERY_CHECK_MAX_AGE_MS) done.add(check)
+        continue
+      }
+
+      if (result.status === 'delivered' || result.status === 'read') {
+        done.add(check)
+        continue
+      }
+
+      if (result.status === 'undelivered' || result.status === 'failed') {
+        done.add(check)
+        console.warn(`[delivery-retry] Message ${check.sid} ${result.status} (error ${result.errorCode ?? 'n/a'}), attempt ${check.attempt}/${MAX_DELIVERY_ATTEMPTS}`)
+
+        if (check.attempt >= MAX_DELIVERY_ATTEMPTS) {
+          console.error(`[delivery-retry] Giving up after ${check.attempt} attempts for user ${check.userId.slice(0, 8)}`)
+          continue
+        }
+
+        // Only resend if the check-in is still open — the user may have
+        // completed it (via the app) between send and verification.
+        const [session] = await db
+          .select()
+          .from(whatsappSession)
+          .where(eq(whatsappSession.id, check.sessionId))
+        if (!session || session.state !== 'snoozed') continue
+
+        const newSid = await deps.send(check.text, check.phone)
+        if (newSid) {
+          await db
+            .update(whatsappSession)
+            .set({ lastMessageAt: new Date() })
+            .where(eq(whatsappSession.id, check.sessionId))
+          enqueueDeliveryCheck({ ...check, sid: newSid, sentAt: deps.now(), attempt: check.attempt + 1 })
+          console.log(`[delivery-retry] Resent as ${newSid} (attempt ${check.attempt + 1})`)
+        }
+        continue
+      }
+
+      // queued / sending / sent — not final yet; keep polling until too old.
+      if (age > DELIVERY_CHECK_MAX_AGE_MS) done.add(check)
+    } catch (err) {
+      console.error('[delivery-retry] verification error:', err)
+      if (age > DELIVERY_CHECK_MAX_AGE_MS) done.add(check)
+    }
+  }
+
+  for (let i = deliveryChecks.length - 1; i >= 0; i--) {
+    if (done.has(deliveryChecks[i])) deliveryChecks.splice(i, 1)
+  }
+}
+
 async function getOrCreateSession(userId: string, date: string) {
   const db = getDb()
   const rows = await db
@@ -158,13 +263,23 @@ async function tickCheckin() {
 
         if (session.state === 'pending') {
           const interviewUrl = `${FRONTEND_URL}/#/interview`
-          const sid = await sendSMS(checkinWithLink(interviewUrl), settings.phoneNumber)
+          const checkinText = checkinWithLink(interviewUrl)
+          const sid = await sendSMS(checkinText, settings.phoneNumber)
           console.log(`[scheduler-diag]   sendSMS returned sid=${sid ?? 'null'}`)
           if (sid) {
             await db
               .update(whatsappSession)
               .set({ state: 'snoozed', lastMessageAt: new Date() })
               .where(and(eq(whatsappSession.id, session.id), eq(whatsappSession.userId, settings.userId)))
+            enqueueDeliveryCheck({
+              sid,
+              userId: settings.userId,
+              sessionId: session.id,
+              phone: settings.phoneNumber,
+              text: checkinText,
+              sentAt: Date.now(),
+              attempt: 1,
+            })
           } else {
             console.log('[scheduler] Send failed — leaving state=pending, will retry next minute')
           }
@@ -329,6 +444,7 @@ export function startScheduler() {
     await tickMorning()
     await tickSandboxReminder()
     await tickResolutions()
+    await processDeliveryChecks()
   })
 
   console.log('[scheduler] Started (runs every minute)')

@@ -22,11 +22,13 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Current focus
 
-**SMS outage resolved + hardening (2026-07-14).** Nightly check-ins were silently down Jul 5–14: the cron-job.org keep-alive died June 30 and auto-deactivated, so Render's free tier slept through every 22:00 tick (full post-mortem: `docs/specs/001-sms-outage.md`). Keep-alive re-enabled and verified. Hardening PR adds a `system_health` heartbeat table + startup `[KEEPALIVE WARNING]`, phone normalization at send time + E.164 backfill (migration 0019), a cross-tenant snooze-reset fix, and honest scheduler diagnostics. Verify the warning does NOT appear on next Render deploy (means the ping is being recorded).
+**Trial-readiness (2026-07-19).** SMS pipeline is verified healthy end-to-end (outage fixed, on-time delivery confirmed, watchdog heartbeat live — `docs/specs/001-sms-outage.md`). This session shipped the two remaining trial blockers: delivery verification + auto-retry for carrier-lost SMS (spec 002), and the legacy `UNIQUE(date)` constraint fix that limited check-ins/interviews to ONE user per day (spec 003 — would have broken the first trial user). Remaining before invites: Dan confirms UptimeRobot second pinger, fixes the stale `TEST_DATABASE_URL` GitHub secret (CI is blind until then), and runs one end-to-end dry run with a second Google account.
 
 ---
 
 ## Recently shipped (last ~2 weeks)
+
+- **Delivery retry + multi-user unblock (2026-07-19):** Poll-based delivery verification — every check-in send is status-checked against Twilio ~5 min later; `undelivered` (like the Jul 15 carrier-lost SMS, error 30008) triggers one automatic resend, completion-aware and capped (spec 002). Callback handler now logs every receipt and no longer flags the sandbox banner for plain-SMS failures. Migration 0020 drops the legacy `UNIQUE(date)` constraints on `whatsapp_session`/`interview_session` that 0017/0018 failed to drop (wrong constraint name, silent no-op) — they capped both tables at one user per day (spec 003). The "inexplicably failing" webhook test was detecting exactly this; suite now 24/24.
 
 - **SMS-outage fix + hardening (2026-07-14):** Root-caused the 9-day silent check-in outage (dead keep-alive → Render asleep at tick time; masked by the Jun 28–Jul 4 migration crash-loop that pinned prod to the old build). Shipped: keep-alive watchdog (`system_health` table, health-ping recording, loud startup warning), `normalizePhone()` + channel matching in `sendSMS`, migration 0019 E.164 backfill, user-scoped snooze reset in settings PATCH, scheduler diag line now prints both `shabbatMode` and `inShabbatWindow`. Incident spec: `docs/specs/001-sms-outage.md`.
 
@@ -54,8 +56,8 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Pending / partial
 
-- **Post-deploy verification (SMS hardening):** after Render redeploys, check startup logs — expect `[keepalive] last health ping Xm ago — keep-alive OK` (not `[KEEPALIVE WARNING]`), and confirm tonight's 22:00 check-in actually arrives.
-- **Pre-existing broken test:** `webhook-routing.test.ts` › "inbound בוצע from user A marks only user A session as processed" fails on a clean DB at HEAD (user B's session row missing at assert time) — unrelated to the hardening changes, needs its own look.
+- **Dan, before trial invites (~15 min):** (1) confirm/create the UptimeRobot second pinger (heartbeat data suggests only cron-job.org is pinging); (2) update the stale `TEST_DATABASE_URL` GitHub Actions secret — CI has been failing at DB auth since before Jul 14, giving zero signal; (3) after PR #2 deploys, one dry run with a second Google account: invite → login → onboarding → set phone → receive a check-in.
+- **Callback mystery (passive):** why Twilio's Jul 15 status callback never reached the server is undetermined; the new per-receipt logging will answer it from normal traffic. Escalate to Twilio with SIDs if failures stay silent.
 - **Inert ProfileScreen controls:** personality/language chips + morning-brief/AI-nudges toggles still not wired (pending per-user settings work now that user_id exists in schema).
 - **Minor debt:** stray `TODO/FIXME` comments to sweep. Optional.
 
@@ -73,9 +75,11 @@ For schema/routes/file layout see CLAUDE.md.
 
 ## Likely next steps (in priority order, my opinion)
 
-1. **Chat tool use** — let Nefesh actually create tasks / update answers during chat. Biggest behavior upgrade still on the table.
-3. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
-4. **Raise spend caps once traffic warrants** — defaults are conservative ($5/day API, 50 SMS/day); tune via env vars when invited users are active.
+1. **Dan's pre-invite checklist** — UptimeRobot second pinger, fix `TEST_DATABASE_URL` GitHub secret, then re-run CI (should be 24/24 now).
+2. **Merge PR #2** (multi-user unblock + delivery retry) and watch one night's logs for the callback answer.
+3. **Trial dry run** — second Google account end-to-end: invite → onboarding → phone → receive check-in. Then invite the first real user.
+4. **Chat tool use** — let Nefesh create tasks / update answers during chat. Biggest behavior upgrade still on the table.
+5. **Resolution visualization** — heatmap/streak grid. Makes habit-tracking feel real.
 
 ---
 
@@ -87,6 +91,9 @@ For schema/routes/file layout see CLAUDE.md.
 - **Twilio SMS** — paid (~$3/mo). Real number, no more sandbox. Webhook signature-verified.
 - **Multi-tenant** — schema has userId on all tables. Auth via `allowed_emails` table (admin-managed). Dan is always `00000000-0000-0000-0000-000000000001`.
 - **Hebrew + RTL** — all UI strings are Hebrew, layout direction RTL. English fallback would need an i18n library if ever needed.
+- **`IF EXISTS` hides typos in migrations** — 0017/0018 dropped constraints by the wrong name and nobody noticed for weeks (spec 003). After destructive DDL, assert the end state against `pg_constraint`; don't trust the no-op.
+- **Delivery-retry queue is in-memory** — a Render restart in the ~5 min after a check-in send drops that night's pending verification (no retry). Morning-skip message is the backstop.
+- **US long code → Israel loses ~7% of SMS** (error 30008/30003). Retry cuts this; if it persists across retries, switch sender (Israeli number / alphanumeric ID) rather than adding retries.
 - **The dispatch ↔ desktop bridge** intermittently hangs shell commands, breaking automated commit/push from code tasks. Manual git via PowerShell always works as a fallback.
 
 ---
